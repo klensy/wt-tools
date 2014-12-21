@@ -86,7 +86,7 @@ def main():
     filename = sys.argv[1]
     dist_dir = filename + '_u/'
 
-    data = decomp_and_write(filename, True)
+    data = decomp_and_write(filename)
 
     print 'file lenght: ' + str(len(data))
     total_files = struct.unpack_from('I', data, total_files_offset)[0]
