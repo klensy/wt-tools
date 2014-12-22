@@ -1,12 +1,10 @@
 import struct, sys
 from time import ctime
 
-# 0x8 - header
-# 0x4 - file size
-# 0x4 - num of units
 
 sz_file_from_header_offset = 0x8
 num_of_units_in_file_offset = 0xc
+bbf_magic = 0x46424200 #  BBF
 
 type_list = {
     0x0: 'size', 0x1: 'str', 0x2: 'int', 0x3: 'float', 0x4: 'typex3',
@@ -145,6 +143,14 @@ def main():
     data = []
     with open(filename, 'rb') as f:
         data = f.read()
+
+    if len(data) == 0:
+        print "empty file"
+        exit(1)
+
+    if struct.unpack_from('I', data, 0)[0] != bbf_magic:
+        print "wrong file type"
+        exit(1)
 
     #print 'file length: ' + str(len(data))
 
