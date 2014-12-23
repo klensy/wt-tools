@@ -5,6 +5,8 @@ g_file_off = 0x1d
 total_files_offset = 0x31
 files_content_start_offset_in_file = 0x2d
 files_names_table_off = 0x3d
+vrfs_magic = 0x73465256  # VRFs
+vrfs_packed_magic = 0x80000000
 
 head_part = [
     0x56, 0x52, 0x46, 0x73, 0x00, 0x00, 0x50, 0x43,
@@ -57,6 +59,14 @@ tail_part = [
 def decomp_and_write(file, is_store_temp_file=False):
     with open(file, 'rb') as f:
         f_data = f.read()
+
+    if struct.unpack_from('I', f_data, 0)[0] != vrfs_magic:
+        print "wrong file type"
+        exit(1)
+    if struct.unpack_from('I', f_data, 0xc)[0] == vrfs_packed_magic:
+        print "unsupported vromfs, will be later"
+        exit(1)
+
     dec_data = decompress(f_data[0x10:])
     head_str = ''.join([chr(c) for c in head_part])
     tail_str = ''.join([chr(c) for c in tail_part])
