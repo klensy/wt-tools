@@ -1,6 +1,4 @@
 import struct, sys, os, errno
-from time import ctime
-from zlib import decompress
 
 
 dxp2_magic = 0x32507844  # DxP2

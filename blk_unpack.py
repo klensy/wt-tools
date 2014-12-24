@@ -4,7 +4,7 @@ from time import ctime
 
 sz_file_from_header_offset = 0x8
 num_of_units_in_file_offset = 0xc
-bbf_magic = 0x46424200 #  BBF
+bbf_magic = 0x46424200  # BBF
 
 type_list = {
     0x0: 'size', 0x1: 'str', 0x2: 'int', 0x3: 'float', 0x4: 'typex3',
@@ -15,15 +15,13 @@ type_list = {
 
 # return length, isFlat?
 def read_first_header(data, offset):
-    block_h = struct.unpack_from('H', data, offset)[0]
-    block_l = struct.unpack_from('H', data, offset + 0x2)[0]
-    return [block_h, block_l], True
+    linear_units, group_num = struct.unpack_from('HH', data, offset)
+    return (linear_units, group_num), True
 
 
 # return (block_group_id, in_group_num), block_type
 def get_block_id_w_type(data, offset):
-    block_group_id = struct.unpack_from('B', data, offset)[0]
-    block_in_group_num = struct.unpack_from('B', data, offset + 0x1)[0]
+    block_group_id, block_in_group_num = struct.unpack_from('BB', data, offset)
     block_type = struct.unpack_from('B', data, offset + 0x3)[0]
     return (block_group_id, block_in_group_num), block_type
 
@@ -42,38 +40,17 @@ def get_block_value(data, id_offset, block_type):
         elif type_list[block_type] == 'bool':
             return struct.unpack_from('B', data, id_offset + 0x2)[0], 0x4
         elif type_list[block_type] == 'size':  # [xxyy], xx - flat size, yy - group num
-            ret = []
-            ret.append(struct.unpack_from('H', data, id_offset + 0x4)[0])
-            ret.append(struct.unpack_from('H', data, id_offset + 0x6)[0])
-            return ret, 0x8
+            return struct.unpack_from('HH', data, id_offset + 0x4), 0x8
         elif type_list[block_type] == 'typex3':
-            ret = []
-            ret.append(struct.unpack_from('f', data, id_offset + 0x4)[0])
-            ret.append(struct.unpack_from('f', data, id_offset + 0x8)[0])
-            return ret, 0xc
+            return struct.unpack_from('ff', data, id_offset + 0x4), 0xc
         elif type_list[block_type] == 'typex4':
-            ret = []
-            ret.append(struct.unpack_from('f', data, id_offset + 0x4)[0])
-            ret.append(struct.unpack_from('f', data, id_offset + 0x8)[0])
-            ret.append(struct.unpack_from('f', data, id_offset + 0xc)[0])
-            return ret, 0x10
+            return struct.unpack_from('fff', data, id_offset + 0x4), 0x10
         elif type_list[block_type] == 'typex5':
-            ret = []
-            ret.append(struct.unpack_from('I', data, id_offset + 0x4)[0])
-            ret.append(struct.unpack_from('I', data, id_offset + 0x8)[0])
-            return ret, 0xc
-        elif type_list[block_type] == 'typex9': #  unixtime?
-            ret = []
-            ret.append(struct.unpack_from('I', data, id_offset + 0x4)[0])
-            ret.append(struct.unpack_from('I', data, id_offset + 0x8)[0])
-            return ret, 0xc
+            return struct.unpack_from('II', data, id_offset + 0x4), 0xc
+        elif type_list[block_type] == 'typex9':  # unixtime?
+            return struct.unpack_from('II', data, id_offset + 0x4), 0xc
         elif type_list[block_type] == 'typex2':
-            ret = []
-            ret.append(struct.unpack_from('f', data, id_offset + 0x4)[0])
-            ret.append(struct.unpack_from('f', data, id_offset + 0x8)[0])
-            ret.append(struct.unpack_from('f', data, id_offset + 0xc)[0])
-            ret.append(struct.unpack_from('f', data, id_offset + 0x10)[0])
-            return ret, 0x14
+            return struct.unpack_from('ffff', data, id_offset + 0x4), 0x14
         elif type_list[block_type] == 'typex10':
             ret = []
             ret.append(get_block_value(data, id_offset, 0x6)[0])
@@ -85,11 +62,7 @@ def get_block_value(data, id_offset, block_type):
         elif type_list[block_type] == 'typex7':  # what type?
             return struct.unpack_from('I', data, id_offset + 0x4)[0], 0x8
         elif type_list[block_type] == 'typex8':  # what type?
-            ret = []
-            ret.append(struct.unpack_from('I', data, id_offset + 0x4)[0])
-            ret.append(struct.unpack_from('I', data, id_offset + 0x8)[0])
-            ret.append(struct.unpack_from('I', data, id_offset + 0xc)[0])
-            return ret, 0x10
+            return struct.unpack_from('III', data, id_offset + 0x4), 0x10
     else:
         print "error, unknown type = {:x}, position = {:x}".format(block_type, id_offset)
         exit(1)
@@ -108,7 +81,7 @@ def print_all_data(data_c, ids_w_names, sub_units_names):
             elif v_type == 'size':
                 print "\n{}{}{{".format(' ' * (indent * 4), ids_w_names[k])
                 indent += 1
-                ind_sizes.append([v[1][0] + 1, v[1][1]]) # flat + inner groups
+                ind_sizes.append([v[1][0] + 1, v[1][1]])  # flat + inner groups
             elif v_type == 'float':
                 print "{}{}:{} = {}".format(' ' * (indent * 4), ids_w_names[k], v_type, float("{:.4f}".format(v[1])))
             elif v_type == 'bool':
@@ -222,7 +195,6 @@ def main():
 
     full_data = []
     block_sizes = []
-    appnd_to = full_data
     b_size, flat = read_first_header(data, cur_p)
     for i in b_size[::-1]:
         block_sizes.append(i)
