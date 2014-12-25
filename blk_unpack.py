@@ -222,6 +222,8 @@ def main():
             block_sizes.pop()
         if len(block_sizes) != 0:
             block_sizes[-1] -= 1
+        if len(block_sizes) == 0:
+            break
 
     if len(units_names) != len(ids_w_names):
         print "error, units != ids", len(units_names), len(ids_w_names), ", not all keys correct!"
