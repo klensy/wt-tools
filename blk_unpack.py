@@ -50,7 +50,7 @@ def get_block_value(data, id_offset, block_type):
         elif type_list[block_type] == 'typex9':  # unixtime?
             return struct.unpack_from('II', data, id_offset + 0x4), 0xc
         elif type_list[block_type] == 'typex2':
-            return struct.unpack_from('ffff', data, id_offset + 0x4), 0x14
+            return list(struct.unpack_from('ffff', data, id_offset + 0x4)), 0x14
         elif type_list[block_type] == 'typex10':
             ret = []
             ret.append(get_block_value(data, id_offset, 0x6)[0])
@@ -88,8 +88,10 @@ def print_all_data(data_c, ids_w_names, sub_units_names):
                 print "{}{}:{} = {}".format(' ' * (indent * 4), ids_w_names[k], v_type, 'yes' if v[1] else 'no')
             elif v_type == 'typex':
                 print "{}{}:{} = {}".format(' ' * (indent * 4), ids_w_names[k], v_type, 'yes' if not v[1] else 'no')
-            elif v_type in ['typex5', 'typex6', 'typex7', 'int', 'typex8', 'typex10']:
+            elif v_type in ['typex6', 'typex7', 'int']:
                 print "{}{}:{} = {}".format(' ' * (indent * 4), ids_w_names[k], v_type, v[1])
+            elif v_type in ['typex5', 'typex8', 'typex10']:
+                print "{}{}:{} = {}".format(' ' * (indent * 4), ids_w_names[k], v_type, list(v[1]))
             elif v_type in ['typex2', 'typex4', 'typex3']:
                 print "{}{}:{} = {}".format(' ' * (indent * 4), ids_w_names[k], v_type, [float("{:.4f}".format(i)) for i in v[1]])
             elif v_type == 'typex9':
