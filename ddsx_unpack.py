@@ -1,4 +1,4 @@
-import struct, sys, pylzma, ctypes, os
+import struct, sys, pylzma, ctypes, os, zlib
 
 dxp_types = ['DXT1', 'DXT5']
 dds_header = [
@@ -52,10 +52,12 @@ def main():
     struct.pack_into('I', dds_data, 0x10, dds_height)
     struct.pack_into('I', dds_data, 0x14, dds_unpacked_body_size)
     struct.pack_into('4s', dds_data, 0x54, header_format)
-    if dds_body_size == 0:
+    if dds_body_size == 0:  # not packed
         dds_data = str(dds_data.raw) + data[0x20:]
-    else:
+    elif struct.unpack_from('I', data, 0x20)[0] == 0x1000005d:  # packed with lzma
         dds_data = str(dds_data.raw) + pylzma.decompress(data[0x20:], maxlength=dds_unpacked_body_size)
+    else:  # packed with zlib
+        dds_data = str(dds_data.raw) + zlib.decompress(data[0x20:])
     with open(os.path.split(filename)[1].split('.')[0] + '.dds', 'wb') as f:
         f.write(dds_data)
 
