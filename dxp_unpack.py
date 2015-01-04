@@ -1,7 +1,7 @@
 import struct, sys, os, errno
 
 
-dxp2_magic = 0x32507844  # DxP2
+dxp2_magic = 'DxP2'
 file_names_block_offset = 0x48
 second_block_offset_from = 0x10  # + 0x10
 dds_block_offset_from = 0x20  # + 0x10
@@ -12,11 +12,13 @@ block_4_offset_from = 0xc  # + 0x10
 def mkdir_p(path):
     n_path = ''.join(os.path.split(path)[:-1])
     try:
-        if n_path != '': os.makedirs(n_path)
+        if n_path != '':
+            os.makedirs(n_path)
     except OSError as exc:
         if exc.errno == errno.EEXIST and os.path.isdir(n_path):
             pass
-        else: raise
+        else:
+            raise
 
 
 def main():
@@ -35,8 +37,8 @@ def main():
         print "empty file"
         exit(1)
 
-    if struct.unpack_from('I', data, 0)[0] != dxp2_magic:
-        print "wrong file type"
+    if struct.unpack_from('4s', data, 0)[0] != dxp2_magic:
+        print "wrong dxp type"
         exit(1)
 
     total_files = struct.unpack_from('H', data, 0x8)[0]
@@ -51,7 +53,8 @@ def main():
         file_names.append(data[old_cur_p: cur_p])
         cur_p += 1
 
-    for i in file_names: print i
+    for i in file_names:
+        print i
 
     cur_p = struct.unpack_from('I', data, second_block_offset_from)[0] + 0x10
     offsets_block_1 = []

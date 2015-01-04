@@ -4,7 +4,7 @@ from time import ctime
 
 sz_file_from_header_offset = 0x8
 num_of_units_in_file_offset = 0xc
-bbf_magic = 0x46424200  # BBF
+bbf_magic = '\x00BBF'
 
 type_list = {
     0x0: 'size', 0x1: 'str', 0x2: 'int', 0x3: 'float', 0x4: 'typex3',
@@ -123,7 +123,7 @@ def main():
         print "empty file"
         exit(1)
 
-    if struct.unpack_from('I', data, 0)[0] != bbf_magic:
+    if struct.unpack_from('4s', data, 0)[0] != bbf_magic:
         print "wrong file type"
         exit(1)
 

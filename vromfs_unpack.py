@@ -3,7 +3,7 @@ from collections import namedtuple
 import os, errno, sys, struct
 
 
-vrfs_magic = 0x73465256  # VRFs
+vrfs_magic = 'VRFs'
 vrfs_not_packed_magic = 0x80000000
 vrfs_type = {'packed': 0x0, 'not_packed': 0x1}
 
@@ -64,8 +64,8 @@ def decomp_and_write(file, is_store_temp_file=False):
     with open(file, 'rb') as f:
         f_data = f.read()
 
-    if struct.unpack_from('I', f_data, 0)[0] != vrfs_magic:
-        print "wrong file type"
+    if struct.unpack_from('4s', f_data, 0)[0] != vrfs_magic:
+        print "wrong vrfs type"
         exit(1)
     if struct.unpack_from('I', f_data, 0xc)[0] == vrfs_not_packed_magic:
         return f_data, vrfs_type["not_packed"]
