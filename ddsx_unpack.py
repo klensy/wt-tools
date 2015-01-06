@@ -33,8 +33,8 @@ def unpack(data):
         print 'wrong ddsx type:', header_format
         exit(1)
 
-    dds_width = struct.unpack_from('H', data, 0xc)[0]
-    dds_height = struct.unpack_from('H', data, 0xe)[0]
+    dds_height = struct.unpack_from('H', data, 0xc)[0]
+    dds_width = struct.unpack_from('H', data, 0xe)[0]
     dds_unpacked_body_size = struct.unpack_from('I', data, 0x18)[0]
     dds_body_size = struct.unpack_from('I', data, 0x1c)[0]
 
