@@ -68,34 +68,45 @@ def get_block_value(data, id_offset, block_type):
         exit(1)
 
 
+def print_item(item_type, item_data, sub_units_names):
+    if item_type == 'str':
+        return sub_units_names[item_data]
+    elif item_type == 'float':
+        return float("{:.4f}".format(item_data))
+    elif item_type == 'bool':
+        return 'yes' if item_data else 'no'
+    elif item_type == 'typex':
+        return 'yes' if not item_data else 'no'
+    elif item_type in ['typex6', 'typex7', 'int']:
+        return item_data
+    elif item_type in ['typex2', 'typex4', 'typex3']:
+        return [float("{:.4f}".format(i)) for i in item_data]
+    elif item_type == 'typex9':
+        return ctime(item_data[0])
+    elif item_type in ['typex5', 'typex8', 'typex10']:
+        return list(item_data)
+
+
 # data_c - data container, ids_w_names - {id: name} pairs, sub_units_names - text names from 2th text block
 def print_all_data(data_c, ids_w_names, sub_units_names):
     indent = 0
     ind_sizes = []
     ind_sizes.append([0, 0])
+    all_text = []
     for i in data_c:
         for k, v in i.iteritems():
             v_type = type_list[v[0]]
             if v_type == 'str':
-                print "{}{}:{} = '{}'".format(' ' * (indent * 4), ids_w_names[k], v_type, sub_units_names[v[1]])
+                all_text.append("{}{}:{} = '{}'".format(' ' * (indent * 4), ids_w_names[k], v_type,
+                    print_item(v_type, v[1], sub_units_names)))
             elif v_type == 'size':
-                print "\n{}{}{{".format(' ' * (indent * 4), ids_w_names[k])
+                all_text.append("\n{}{}{{".format(' ' * (indent * 4), ids_w_names[k]))
                 indent += 1
                 ind_sizes.append([v[1][0] + 1, v[1][1]])  # flat + inner groups
-            elif v_type == 'float':
-                print "{}{}:{} = {}".format(' ' * (indent * 4), ids_w_names[k], v_type, float("{:.4f}".format(v[1])))
-            elif v_type == 'bool':
-                print "{}{}:{} = {}".format(' ' * (indent * 4), ids_w_names[k], v_type, 'yes' if v[1] else 'no')
-            elif v_type == 'typex':
-                print "{}{}:{} = {}".format(' ' * (indent * 4), ids_w_names[k], v_type, 'yes' if not v[1] else 'no')
-            elif v_type in ['typex6', 'typex7', 'int']:
-                print "{}{}:{} = {}".format(' ' * (indent * 4), ids_w_names[k], v_type, v[1])
-            elif v_type in ['typex5', 'typex8', 'typex10']:
-                print "{}{}:{} = {}".format(' ' * (indent * 4), ids_w_names[k], v_type, list(v[1]))
-            elif v_type in ['typex2', 'typex4', 'typex3']:
-                print "{}{}:{} = {}".format(' ' * (indent * 4), ids_w_names[k], v_type, [float("{:.4f}".format(i)) for i in v[1]])
-            elif v_type == 'typex9':
-                print "{}{}:{} = {}".format(' ' * (indent * 4), ids_w_names[k], v_type, ctime(v[1][0]))
+            elif v_type in ['float', 'bool', 'typex', 'typex6', 'typex7', 'int', 'typex2',
+                'typex4', 'typex3', 'typex9', 'typex5', 'typex8', 'typex10']:
+                all_text.append("{}{}:{} = {}".format(' ' * (indent * 4), ids_w_names[k], v_type,
+                    print_item(v_type, v[1], sub_units_names)))
             else:
                 print "{}{}:{} = {}".format(' ' * (indent * 4), ids_w_names[k], v_type, v[1])
                 print 'error, new type?'
@@ -105,7 +116,8 @@ def print_all_data(data_c, ids_w_names, sub_units_names):
             ind_sizes.pop()
             indent -= 1
             ind_sizes[-1][1] -= 1
-            print '{}}}'.format(' ' * (indent * 4))
+            all_text.append('{}}}'.format(' ' * (indent * 4)))
+    return all_text
 
 
 def main():
@@ -230,7 +242,9 @@ def main():
     if len(units_names) != len(ids_w_names):
         print "error, units != ids", len(units_names), len(ids_w_names), ", not all keys correct!"
 
-    print_all_data(full_data, ids_w_names, sub_units_names)
+    with open(filename + 'x', 'w') as f:
+        f.write('\n'.join(print_all_data(full_data, ids_w_names, sub_units_names)))
+        f.write('\n')
 
 
 if __name__ == '__main__':
