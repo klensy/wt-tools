@@ -13,7 +13,6 @@ type_list = {
     }
 
 
-# return length, isFlat?
 def read_first_header(data, offset):
     linear_units, group_num = struct.unpack_from('HH', data, offset)
     return (linear_units, group_num), True
@@ -85,6 +84,9 @@ def print_item(item_type, item_data, sub_units_names):
         return ctime(item_data[0])
     elif item_type in ['typex5', 'typex8', 'typex10']:
         return list(item_data)
+    else:
+        print "error, unknown type = {:x}".format(item_type)
+        exit(1)
 
 
 # data_c - data container, ids_w_names - {id: name} pairs, sub_units_names - text names from 2th text block
@@ -120,69 +122,36 @@ def print_all_data(data_c, ids_w_names, sub_units_names):
     return all_text
 
 
-def main():
-    if len(sys.argv) != 2:
-        print 'usage: blk_unpack.py file'
-        sys.exit(1)
+def unpack(data):
+    """
+    Parse file from data and return list of strings.
 
-    filename = sys.argv[1]
-
-    data = []
-    with open(filename, 'rb') as f:
-        data = f.read()
-
-    if len(data) == 0:
-        print "empty file"
-        exit(1)
-
+    :param data: blk data
+    :return: list of strings
+    """
     if struct.unpack_from('4s', data, 0)[0] != bbf_magic:
         print "wrong file type"
         exit(1)
 
     #print 'file length: ' + str(len(data))
 
-    sz_file_from_header = struct.unpack_from('I', data, sz_file_from_header_offset)[0]
-    #print 'data length: ' + str(sz_file_from_header)
+    '''sz_file_from_header = struct.unpack_from('I', data, sz_file_from_header_offset)[0]
+    print 'data length: ' + str(sz_file_from_header)'''
 
     num_of_units_in_file = struct.unpack_from('I', data, num_of_units_in_file_offset)[0]
     #print '\nnum of units: ' + str(num_of_units_in_file)
-
-    units_size = []
-    ids = []
-    cur_p = 0x10
-    # 0x100 in 1.43, 1.45, 0x40 in 1.41
-    if struct.unpack_from('H', data, 0x10)[0] == 0x100:
-        cur_p = 0x12
-        block_size = 0x0
-        units_left = num_of_units_in_file
-        while units_left > 0:
-            if block_size == 0:
-                while struct.unpack_from('H', data, cur_p)[0] == 0x0: cur_p += 2
-                # stand on block size
-                block_size = struct.unpack_from('H', data, cur_p)[0]
-                # remember number of added ids before adding new
-                prev_num_ids = len(ids)
-                for i in xrange(block_size):
-                    ids.append(((cur_p - 0x12) // 2 - prev_num_ids, i))
-                cur_p += 2
-            units_left -= block_size
-            while block_size > 0:
-                units_size.append(ord(data[cur_p]))
-                cur_p += 2
-                block_size -= 1
-    else:
-        print 'error, unknown blocks!'
-        exit(1)
-
+    
+    units_size, ids, cur_p = get_unit_sizes_and_ids(data, num_of_units_in_file)
+    
     # at this point we have sizes of units
     while struct.unpack_from('H', data, cur_p)[0] == 0x0: cur_p += 2
-    # now at units name start
+    # now get unit names
     units_names = []
     for unit_size in units_size:
         units_names.append(data[cur_p: cur_p + unit_size])
         cur_p += unit_size
     ids_w_names = dict(zip(ids, units_names))
-
+    
     # align to 0x4
     while cur_p % 4 != 0: cur_p += 1
 
@@ -200,13 +169,58 @@ def main():
     for s_unit_size in sub_units_size:
         sub_units_names.append(data[cur_p: cur_p + s_unit_size])
         cur_p += s_unit_size
-
-    '''for u in sub_units_names:
-        print ''.join([chr(ord(c)) for c in u])'''
-
+    
     # align by 0x4
     while cur_p % 0x4 != 0: cur_p += 1
+    
+    full_data = parse_data(data, cur_p)
+    
+    if len(units_names) != len(ids_w_names):
+        print "error, units != ids", len(units_names), len(ids_w_names), ", not all keys correct!"
 
+    return print_all_data(full_data, ids_w_names, sub_units_names)
+
+
+# return units_size, ids, cur_p
+def get_unit_sizes_and_ids(data, num_of_keys_in_file):
+    key_size = []  # length of string, which represents key
+    keys = []  # strings, which represent keys
+
+    # 0x100 in 1.43 - 1.45, 0x40 in 1.41
+    header_type = struct.unpack_from('H', data, 0x10)[0]
+    if header_type == 0x100:
+        cur_p = 0x12
+        block_size = 0x0  # keys in block
+        keys_left = num_of_keys_in_file
+        while keys_left > 0:
+            if block_size == 0:
+                while struct.unpack_from('H', data, cur_p)[0] == 0x0:
+                    cur_p += 2
+                block_size = struct.unpack_from('H', data, cur_p)[0]
+                # remember number of added keys before adding new
+                total_keys_old = len(keys)
+                for i in xrange(block_size):
+                    keys.append(((cur_p - 0x12) // 2 - total_keys_old, i))
+                cur_p += 2
+            keys_left -= block_size
+            while block_size > 0:
+                key_size.append(ord(data[cur_p]))
+                cur_p += 2
+                block_size -= 1
+        return key_size, keys, cur_p
+    else:
+        print 'error, unknown block = {:x}'.format(header_type)
+        exit(1)
+
+
+def parse_data(data, cur_p):
+    """
+    Read main block of data and parse it.
+
+    :param data: blk data
+    :param cur_p: pointer where to start
+    :return: list with {key_id: [key_type, key_value]} items
+    """
     full_data = []
     block_sizes = []
     b_size, flat = read_first_header(data, cur_p)
@@ -238,12 +252,26 @@ def main():
             block_sizes[-1] -= 1
         if len(block_sizes) == 0:
             break
+    return full_data
 
-    if len(units_names) != len(ids_w_names):
-        print "error, units != ids", len(units_names), len(ids_w_names), ", not all keys correct!"
+
+def main():
+    if len(sys.argv) != 2:
+        print 'usage: blk_unpack.py file'
+        sys.exit(1)
+
+    filename = sys.argv[1]
+
+    data = []
+    with open(filename, 'rb') as f:
+        data = f.read()
+
+    if len(data) == 0:
+        print "empty file"
+        exit(1)
 
     with open(filename + 'x', 'w') as f:
-        f.write('\n'.join(print_all_data(full_data, ids_w_names, sub_units_names)))
+        f.write('\n'.join(unpack(data)))
         f.write('\n')
 
 
