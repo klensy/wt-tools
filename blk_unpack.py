@@ -9,7 +9,7 @@ bbf_magic = '\x00BBF'
 type_list = {
     0x0: 'size', 0x1: 'str', 0x2: 'int', 0x3: 'float', 0x4: 'typex3',
     0x5: 'typex4', 0x6: 'typex2', 0x7: 'typex5', 0x8: 'typex8',  0x9: 'bool',
-    0xa: 'typex6', 0xb: 'typex10', 0xc: 'typex9', 0x10: 'typex7', 0x89: 'typex'
+    0xa: 'color', 0xb: 'typex10', 0xc: 'time', 0x10: 'typex7', 0x89: 'typex'
     }
 
 
@@ -46,7 +46,7 @@ def get_block_value(data, id_offset, block_type):
             return struct.unpack_from('fff', data, id_offset + 0x4), 0x10
         elif type_list[block_type] == 'typex5':
             return struct.unpack_from('II', data, id_offset + 0x4), 0xc
-        elif type_list[block_type] == 'typex9':  # unixtime?
+        elif type_list[block_type] == 'time':  # unixtime
             return struct.unpack_from('II', data, id_offset + 0x4), 0xc
         elif type_list[block_type] == 'typex2':
             return list(struct.unpack_from('ffff', data, id_offset + 0x4)), 0x14
@@ -56,7 +56,7 @@ def get_block_value(data, id_offset, block_type):
             ret.append(get_block_value(data, id_offset + 0x10, 0x6)[0])
             ret.append(get_block_value(data, id_offset + 0x20, 0x6)[0])
             return ret, 0x34
-        elif type_list[block_type] == 'typex6':  # what type?
+        elif type_list[block_type] == 'color':  # color code, like #6120f00
             return struct.unpack_from('I', data, id_offset + 0x4)[0], 0x8
         elif type_list[block_type] == 'typex7':  # what type?
             return struct.unpack_from('I', data, id_offset + 0x4)[0], 0x8
@@ -76,11 +76,13 @@ def print_item(item_type, item_data, sub_units_names):
         return 'yes' if item_data else 'no'
     elif item_type == 'typex':
         return 'yes' if not item_data else 'no'
-    elif item_type in ['typex6', 'typex7', 'int']:
+    elif item_type == 'color':
+        return "#{:x}".format(item_data)
+    elif item_type in ['typex7', 'int']:
         return item_data
     elif item_type in ['typex2', 'typex4', 'typex3']:
         return [float("{:.4f}".format(i)) for i in item_data]
-    elif item_type == 'typex9':
+    elif item_type == 'time':
         return ctime(item_data[0])
     elif item_type in ['typex5', 'typex8', 'typex10']:
         return list(item_data)
@@ -98,15 +100,15 @@ def print_all_data(data_c, ids_w_names, sub_units_names):
     for i in data_c:
         for k, v in i.iteritems():
             v_type = type_list[v[0]]
-            if v_type == 'str':
+            if v_type in ['str', 'time']:
                 all_text.append("{}{}:{} = '{}'".format(' ' * (indent * 4), ids_w_names[k], v_type,
                     print_item(v_type, v[1], sub_units_names)))
             elif v_type == 'size':
                 all_text.append("\n{}{}{{".format(' ' * (indent * 4), ids_w_names[k]))
                 indent += 1
                 ind_sizes.append([v[1][0] + 1, v[1][1]])  # flat + inner groups
-            elif v_type in ['float', 'bool', 'typex', 'typex6', 'typex7', 'int', 'typex2',
-                'typex4', 'typex3', 'typex9', 'typex5', 'typex8', 'typex10']:
+            elif v_type in ['float', 'bool', 'typex', 'color', 'typex7', 'int', 'typex2',
+                'typex4', 'typex3', 'typex5', 'typex8', 'typex10']:
                 all_text.append("{}{}:{} = {}".format(' ' * (indent * 4), ids_w_names[k], v_type,
                     print_item(v_type, v[1], sub_units_names)))
             else:
