@@ -7,9 +7,10 @@ num_of_units_in_file_offset = 0xc
 bbf_magic = '\x00BBF'
 
 type_list = {
-    0x0: 'size', 0x1: 'str', 0x2: 'int', 0x3: 'float', 0x4: 'typex3',
-    0x5: 'typex4', 0x6: 'typex2', 0x7: 'typex5', 0x8: 'typex8',  0x9: 'bool',
-    0xa: 'color', 0xb: 'typex10', 0xc: 'time', 0x10: 'typex7', 0x89: 'typex'
+    0x0: 'size', 0x1: 'str', 0x2: 'int', 0x3: 'float', 0x4: 'vec2f',
+    0x5: 'vec3f', 0x6: 'vec4f', 0x7: 'vec2i', 0x8: 'typex8',  0x9: 'bool',
+    0xa: 'color', 0xb: 'm4x3f', 0xc: 'time', 0x10: 'typex7',
+    0x89: 'typex'  # same as 'bool', but reversed
     }
 
 
@@ -34,27 +35,28 @@ def get_block_value(data, id_offset, block_type):
             return struct.unpack_from('i', data, id_offset + 0x4)[0], 0x8
         elif type_list[block_type] == 'float':
             return struct.unpack_from('f', data, id_offset + 0x4)[0], 0x8
-        elif type_list[block_type] == 'typex':
+        elif type_list[block_type] == 'typex':  # reversed 'bool'
             return struct.unpack_from('B', data, id_offset + 0x2)[0], 0x4
         elif type_list[block_type] == 'bool':
             return struct.unpack_from('B', data, id_offset + 0x2)[0], 0x4
         elif type_list[block_type] == 'size':  # [xxyy], xx - flat size, yy - group num
             return struct.unpack_from('HH', data, id_offset + 0x4), 0x8
-        elif type_list[block_type] == 'typex3':
+        elif type_list[block_type] == 'vec2f':
             return struct.unpack_from('ff', data, id_offset + 0x4), 0xc
-        elif type_list[block_type] == 'typex4':
-            return struct.unpack_from('fff', data, id_offset + 0x4), 0x10
-        elif type_list[block_type] == 'typex5':
+        elif type_list[block_type] == 'vec3f':
+            return list(struct.unpack_from('fff', data, id_offset + 0x4)), 0x10
+        elif type_list[block_type] == 'vec2i':
             return struct.unpack_from('II', data, id_offset + 0x4), 0xc
         elif type_list[block_type] == 'time':  # unixtime
             return struct.unpack_from('II', data, id_offset + 0x4), 0xc
-        elif type_list[block_type] == 'typex2':
-            return list(struct.unpack_from('ffff', data, id_offset + 0x4)), 0x14
-        elif type_list[block_type] == 'typex10':
+        elif type_list[block_type] == 'vec4f':
+            return struct.unpack_from('ffff', data, id_offset + 0x4), 0x14
+        elif type_list[block_type] == 'm4x3f':
             ret = []
-            ret.append(get_block_value(data, id_offset, 0x6)[0])
-            ret.append(get_block_value(data, id_offset + 0x10, 0x6)[0])
-            ret.append(get_block_value(data, id_offset + 0x20, 0x6)[0])
+            ret.append(get_block_value(data, id_offset, 0x5)[0])
+            ret.append(get_block_value(data, id_offset + 0xc, 0x5)[0])
+            ret.append(get_block_value(data, id_offset + 0x18, 0x5)[0])
+            ret.append(get_block_value(data, id_offset + 0x24, 0x5)[0])
             return ret, 0x34
         elif type_list[block_type] == 'color':  # color code, like #6120f00
             return struct.unpack_from('I', data, id_offset + 0x4)[0], 0x8
@@ -80,12 +82,14 @@ def print_item(item_type, item_data, sub_units_names):
         return "#{:x}".format(item_data)
     elif item_type in ['typex7', 'int']:
         return item_data
-    elif item_type in ['typex2', 'typex4', 'typex3']:
-        return [float("{:.4f}".format(i)) for i in item_data]
+    elif item_type in ['vec4f', 'vec3f', 'vec2f']:
+        return [float("{:.5e}".format(i)) for i in item_data]
     elif item_type == 'time':
         return ctime(item_data[0])
-    elif item_type in ['typex5', 'typex8', 'typex10']:
+    elif item_type in ['vec2i', 'typex8']:
         return list(item_data)
+    elif item_type == 'm4x3f':  # 'vec3f' in 'm4x3f'
+        return [print_item('vec3f', item, sub_units_names) for item in item_data]
     else:
         print "error, unknown type = {:x}".format(item_type)
         exit(1)
@@ -107,9 +111,12 @@ def print_all_data(data_c, ids_w_names, sub_units_names):
                 all_text.append("\n{}{}{{".format(' ' * (indent * 4), ids_w_names[k]))
                 indent += 1
                 ind_sizes.append([v[1][0] + 1, v[1][1]])  # flat + inner groups
-            elif v_type in ['float', 'bool', 'typex', 'color', 'typex7', 'int', 'typex2',
-                'typex4', 'typex3', 'typex5', 'typex8', 'typex10']:
+            elif v_type in ['float', 'bool', 'color', 'typex7', 'int', 'vec4f',
+                'vec3f', 'vec2f', 'vec2i', 'typex8', 'm4x3f']:
                 all_text.append("{}{}:{} = {}".format(' ' * (indent * 4), ids_w_names[k], v_type,
+                    print_item(v_type, v[1], sub_units_names)))
+            elif v_type == 'typex':  # replaced 'typex' name with 'bool'
+                all_text.append("{}{}:{} = {}".format(' ' * (indent * 4), ids_w_names[k], 'bool',
                     print_item(v_type, v[1], sub_units_names)))
             else:
                 print "{}{}:{} = {}".format(' ' * (indent * 4), ids_w_names[k], v_type, v[1])
@@ -142,9 +149,9 @@ def unpack(data):
 
     num_of_units_in_file = struct.unpack_from('I', data, num_of_units_in_file_offset)[0]
     #print '\nnum of units: ' + str(num_of_units_in_file)
-    
+
     units_size, ids, cur_p = get_unit_sizes_and_ids(data, num_of_units_in_file)
-    
+
     # at this point we have sizes of units
     while struct.unpack_from('H', data, cur_p)[0] == 0x0: cur_p += 2
     # now get unit names
@@ -153,7 +160,7 @@ def unpack(data):
         units_names.append(data[cur_p: cur_p + unit_size])
         cur_p += unit_size
     ids_w_names = dict(zip(ids, units_names))
-    
+
     # align to 0x4
     while cur_p % 4 != 0: cur_p += 1
 
@@ -171,12 +178,12 @@ def unpack(data):
     for s_unit_size in sub_units_size:
         sub_units_names.append(data[cur_p: cur_p + s_unit_size])
         cur_p += s_unit_size
-    
+
     # align by 0x4
     while cur_p % 0x4 != 0: cur_p += 1
-    
+
     full_data = parse_data(data, cur_p)
-    
+
     if len(units_names) != len(ids_w_names):
         print "error, units != ids", len(units_names), len(ids_w_names), ", not all keys correct!"
 
