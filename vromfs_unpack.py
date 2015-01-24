@@ -84,11 +84,81 @@ def decomp_and_write(file, is_store_temp_file=False):
 def mkdir_p(path):
     n_path = ''.join(os.path.split(path)[:-1])
     try:
-        if n_path != '': os.makedirs(n_path)
+        if n_path != '':
+            os.makedirs(n_path)
     except OSError as exc:
         if exc.errno == errno.EEXIST and os.path.isdir(n_path):
             pass
-        else: raise
+        else:
+            raise
+
+
+def unpack(filename, dist_dir):
+    """
+    Unpacks files from 'filename' to 'dist_dir'.
+
+    :param filename: file to unpack
+    :param dist_dir: folder where to unpack
+    """
+    data, vrfs_curr_type = decomp_and_write(filename)
+
+    curr_vrfs = VRFS(0, 0, 0, 0)
+    if vrfs_curr_type == vrfs_type["packed"]:
+        curr_vrfs = packed_vrfs
+    elif vrfs_curr_type == vrfs_type["not_packed"]:
+        curr_vrfs = not_packed_vrfs
+    else:
+        print "Error, unknown vrfs type!"
+        exit(1)
+
+    print "file length: %d" % (len(data))
+    total_files = struct.unpack_from('I', data, curr_vrfs.total_files_off)[0]
+    print "total files: %d" % (total_files)
+
+    names_list = get_names_list(data, curr_vrfs, total_files)
+    content_list = get_content_list(data, curr_vrfs, total_files)
+
+    for i in xrange(total_files):
+        mkdir_p(dist_dir + names_list[i])
+        with open(dist_dir + names_list[i], 'wb') as f:
+            f.write(content_list[i])
+
+
+def get_names_list(data, curr_vrfs, total_files):
+    names_list = []
+    for i in xrange(total_files):
+        name_off_src = curr_vrfs.file_names_table_off + i * 8
+        name_off = struct.unpack_from('I', data, name_off_src)[0]
+        name_off += curr_vrfs.added_off
+        name = []
+        for c in xrange(name_off, len(data)):
+            ch = data[c]
+            if ord(ch) != 0x0:
+                name.append(ch)
+            else:
+                break
+        name = ''.join(name)
+        names_list.append(name)
+    return names_list
+
+
+def get_content_list(data, curr_vrfs, total_files):
+    content_block_start_offset = struct.unpack_from('I', data, curr_vrfs.file_content_start_off)[0]
+    content_block_start_offset += curr_vrfs.added_off
+    # print "content_block_start_offset: %d" % (content_block_start_offset)
+
+    content_list = []
+    for i in xrange(total_files):
+        content_off_src = content_block_start_offset + i * 16
+        content_off = struct.unpack_from('I', data, content_off_src)[0]
+        content_off += curr_vrfs.added_off
+        # print 'cont offset: ' + str(content_off)
+        content_size_off_src = content_off_src + 4
+        content_size = struct.unpack_from('I', data, content_size_off_src)[0]
+        # print 'cont size: ' + str(content_size)
+        content = data[content_off:content_off + content_size]
+        content_list.append(content)
+    return content_list
 
 
 def main():
@@ -98,63 +168,8 @@ def main():
 
     filename = sys.argv[1]
     dist_dir = filename + '_u/'
+    unpack(filename, dist_dir)
 
-    data, vrfs_curr_type = decomp_and_write(filename)
-
-    # hack for init curr_vrfs
-    curr_vrfs = VRFS(0, 0, 0, 0)
-    if vrfs_curr_type == vrfs_type["packed"]:
-        curr_vrfs = packed_vrfs
-    elif vrfs_curr_type == vrfs_type["not_packed"]:
-        curr_vrfs = not_packed_vrfs
-    else:
-        print "Error, unknown vrfs type!"
-    
-    print 'file lenght: ' + str(len(data))
-    total_files = struct.unpack_from('I', data, curr_vrfs.total_files_off)[0]
-    print 'total files: ' + str(total_files)
-
-    files_content_start_offset = struct.unpack_from('I', data, curr_vrfs.file_content_start_off)[0]
-    files_content_start_offset += curr_vrfs.added_off
-
-    for i in xrange(total_files):
-        print '\n'
-        name_off_src = curr_vrfs.file_names_table_off + i * 8
-        name_off = struct.unpack_from('I', data, name_off_src)[0]
-        name_off += curr_vrfs.added_off
-        name = []
-        for c in data[name_off:]:
-            if ord(c) != 0x0:
-                name.append(c)
-            else:
-                break
-        name = ''.join(name)
-        print name
-
-        content_off_src = files_content_start_offset + i * 16
-        content_off = struct.unpack_from('I', data, content_off_src)[0]
-        content_off += curr_vrfs.added_off
-        print 'cont offset: ' + str(content_off)
-        content_size_off_src = content_off_src + 4
-        content_size = struct.unpack_from('I', data, content_size_off_src)[0]
-        print 'cont size: ' + str(content_size)
-        content = data[content_off:content_off + content_size]
-
-        if vrfs_curr_type == vrfs_type["packed"]:
-                mkdir_p(dist_dir + name)
-                with open(dist_dir + name, 'wb') as f:
-                    f.write(content)
-        else:
-            # content = blk + data (ddsx)
-            blk_data_size = struct.unpack_from('I', content, 0x4)[0]
-            blk_data = content[0x8: 0x8 + blk_data_size]
-            ddsx_data_start = blk_data_size + 0x8  # 0x8 - header
-            ddsx_data = content[ddsx_data_start:]
-            mkdir_p(dist_dir + name)
-            with open(dist_dir + name + '.blk', 'wb') as f:
-                f.write(blk_data)
-            with open(dist_dir + name, 'wb') as f:
-                f.write(ddsx_data)
 
 if __name__ == '__main__':
     main()
