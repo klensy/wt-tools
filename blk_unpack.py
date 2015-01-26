@@ -1,5 +1,6 @@
 import struct, sys
 from time import ctime
+import json
 
 
 sz_file_from_header_offset = 0x8
@@ -95,40 +96,14 @@ def print_item(item_type, item_data, sub_units_names):
         exit(1)
 
 
-# data_c - data container, ids_w_names - {id: name} pairs, sub_units_names - text names from 2th text block
-def print_all_data(data_c, ids_w_names, sub_units_names):
-    indent = 0
-    ind_sizes = []
-    ind_sizes.append([0, 0])
-    all_text = []
-    for i in data_c:
-        for k, v in i.iteritems():
-            v_type = type_list[v[0]]
-            if v_type in ['str', 'time']:
-                all_text.append("{}{}:{} = '{}'".format(' ' * (indent * 4), ids_w_names[k], v_type,
-                    print_item(v_type, v[1], sub_units_names)))
-            elif v_type == 'size':
-                all_text.append("\n{}{}{{".format(' ' * (indent * 4), ids_w_names[k]))
-                indent += 1
-                ind_sizes.append([v[1][0] + 1, v[1][1]])  # flat + inner groups
-            elif v_type in ['float', 'bool', 'color', 'typex7', 'int', 'vec4f',
-                'vec3f', 'vec2f', 'vec2i', 'typex8', 'm4x3f']:
-                all_text.append("{}{}:{} = {}".format(' ' * (indent * 4), ids_w_names[k], v_type,
-                    print_item(v_type, v[1], sub_units_names)))
-            elif v_type == 'typex':  # replaced 'typex' name with 'bool'
-                all_text.append("{}{}:{} = {}".format(' ' * (indent * 4), ids_w_names[k], 'bool',
-                    print_item(v_type, v[1], sub_units_names)))
-            else:
-                print "{}{}:{} = {}".format(' ' * (indent * 4), ids_w_names[k], v_type, v[1])
-                print 'error, new type?'
-                exit(1)
-        ind_sizes[-1][0] -= 1
-        while ind_sizes[-1][0] == 0 and ind_sizes[-1][1] == 0:
-            ind_sizes.pop()
-            indent -= 1
-            ind_sizes[-1][1] -= 1
-            all_text.append('{}}}'.format(' ' * (indent * 4)))
-    return all_text
+def from_id_to_str(id, type, value, ids_w_names, sub_units_names):
+    item_id = ids_w_names[id]
+    item_type = type_list[type]
+    if item_type != 'size':
+        item_value = print_item(item_type, value, sub_units_names)
+        return {'key': item_id, 'type': item_type, 'value': item_value}
+    else:
+        return {item_id: []}
 
 
 def unpack(data):
@@ -142,13 +117,13 @@ def unpack(data):
         print "wrong file type"
         exit(1)
 
-    #print 'file length: ' + str(len(data))
+    # print 'file length: ' + str(len(data))
 
     '''sz_file_from_header = struct.unpack_from('I', data, sz_file_from_header_offset)[0]
     print 'data length: ' + str(sz_file_from_header)'''
 
     num_of_units_in_file = struct.unpack_from('I', data, num_of_units_in_file_offset)[0]
-    #print '\nnum of units: ' + str(num_of_units_in_file)
+    # print '\nnum of units: ' + str(num_of_units_in_file)
 
     units_size, ids, cur_p = get_unit_sizes_and_ids(data, num_of_units_in_file)
 
@@ -166,7 +141,7 @@ def unpack(data):
 
     total_sub_units = struct.unpack_from('I', data, cur_p)[0]
 
-    #print '\nnum of sub units: ' + str(total_sub_units)
+    # print '\nnum of sub units: ' + str(total_sub_units)
     cur_p += 0x4
     sub_units_size = []
     while len(sub_units_size) < total_sub_units:
@@ -182,12 +157,12 @@ def unpack(data):
     # align by 0x4
     while cur_p % 0x4 != 0: cur_p += 1
 
-    full_data = parse_data(data, cur_p)
+    full_data = parse_data(data, cur_p, ids_w_names, sub_units_names)
 
-    if len(units_names) != len(ids_w_names):
-        print "error, units != ids", len(units_names), len(ids_w_names), ", not all keys correct!"
+    '''if len(units_names) != len(ids_w_names):
+        print "error, units != ids", len(units_names), len(ids_w_names), ", not all keys correct!"'''
 
-    return print_all_data(full_data, ids_w_names, sub_units_names)
+    return json.dumps(full_data)
 
 
 # return units_size, ids, cur_p
@@ -222,7 +197,7 @@ def get_unit_sizes_and_ids(data, num_of_keys_in_file):
         exit(1)
 
 
-def parse_data(data, cur_p):
+def parse_data(data, cur_p, ids_w_names, sub_units_names):
     """
     Read main block of data and parse it.
 
@@ -230,38 +205,39 @@ def parse_data(data, cur_p):
     :param cur_p: pointer where to start
     :return: list with {key_id: [key_type, key_value]} items
     """
-    full_data = []
-    block_sizes = []
     b_size, flat = read_first_header(data, cur_p)
-    for i in b_size[::-1]:
-        block_sizes.append(i)
-
     cur_p += 4
-    while cur_p < len(data):
-        if not flat:  # more headers
-            b_id, b_type = get_block_id_w_type(data, cur_p)
-            b_value, b_off = get_block_value(data, cur_p, b_type)
-            cur_p += b_off
-            full_data.append({b_id: [0x0, b_value]})
-            for i in b_value[::-1]:
-                block_sizes.append(i)
-        if cur_p == len(data):
-            print 'error, EOF! ', hex(cur_p)
-            break
-        for i in xrange(block_sizes[-1]):
-            b_id, b_type = get_block_id_w_type(data, cur_p)
-            b_value, b_off = get_block_value(data, cur_p, b_type)
-            cur_p += b_off
-            full_data.append({b_id: [b_type, b_value]})
-        flat = False
-        block_sizes.pop()
-        while len(block_sizes) != 0 and block_sizes[-1] == 0:
-            block_sizes.pop()
-        if len(block_sizes) != 0:
-            block_sizes[-1] -= 1
-        if len(block_sizes) == 0:
-            break
+    full_data, cur_p = parse_inner(data, cur_p, b_size, ids_w_names, sub_units_names)
     return full_data
+
+
+def parse_inner(data, cur_p, b_size, ids_w_names, sub_units_names):
+    # TODO: make class from it, drop ids_w_names, sub_units_names refs
+    curr_block = []
+    # print 'b_size', b_size
+    while cur_p < len(data):
+        flat_num, group_num = b_size
+        if flat_num > 0:
+            for i in xrange(flat_num):
+                b_id, b_type = get_block_id_w_type(data, cur_p)
+                b_value, b_off = get_block_value(data, cur_p, b_type)
+                cur_p += b_off
+                curr_block.append(from_id_to_str(b_id, b_type, b_value, ids_w_names, sub_units_names))
+            b_size = (0, group_num)
+        else:  # flat_num == 0
+            b_id, b_type = get_block_id_w_type(data, cur_p)
+            b_value, b_off = get_block_value(data, cur_p, b_type)
+            cur_p += b_off
+            str_id = ids_w_names[b_id]
+            curr_block.append({str_id: []})
+            inner_block, cur_p = parse_inner(data, cur_p, b_value, ids_w_names, sub_units_names)
+            for i in inner_block:
+                curr_block[-1][str_id].append(i)
+            flat_num, group_num = b_size
+            b_size = (flat_num, group_num - 1)
+        if b_size == (0, 0):
+                break
+    return curr_block, cur_p
 
 
 def main():
@@ -280,8 +256,7 @@ def main():
         exit(1)
 
     with open(filename + 'x', 'w') as f:
-        f.write('\n'.join(unpack(data)))
-        f.write('\n')
+        f.write(unpack(data))
 
 
 if __name__ == '__main__':
