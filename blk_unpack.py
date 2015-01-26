@@ -228,11 +228,9 @@ def parse_inner(data, cur_p, b_size, ids_w_names, sub_units_names):
             b_id, b_type = get_block_id_w_type(data, cur_p)
             b_value, b_off = get_block_value(data, cur_p, b_type)
             cur_p += b_off
-            str_id = ids_w_names[b_id]
-            curr_block.append({str_id: []})
             inner_block, cur_p = parse_inner(data, cur_p, b_value, ids_w_names, sub_units_names)
-            for i in inner_block:
-                curr_block[-1][str_id].append(i)
+            str_id = ids_w_names[b_id]
+            curr_block.append({str_id: inner_block})
             flat_num, group_num = b_size
             b_size = (flat_num, group_num - 1)
         if b_size == (0, 0):
