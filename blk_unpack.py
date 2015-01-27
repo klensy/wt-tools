@@ -1,6 +1,8 @@
 import struct, sys
 from time import ctime
 import json
+from collections import OrderedDict
+import uuid
 
 
 sz_file_from_header_offset = 0x8
@@ -13,6 +15,34 @@ type_list = {
     0xa: 'color', 0xb: 'm4x3f', 0xc: 'time', 0x10: 'typex7',
     0x89: 'typex'  # same as 'bool', but reversed
     }
+
+# https://stackoverflow.com/questions/13249415
+# using private interface
+class NoIndent(object):
+    def __init__(self, value):
+        self.value = value
+
+
+class NoIndentEncoder(json.JSONEncoder):
+    def __init__(self, *args, **kwargs):
+        super(NoIndentEncoder, self).__init__(*args, **kwargs)
+        self.kwargs = dict(kwargs)
+        del self.kwargs['indent']
+        self._replacement_map = {}
+
+    def default(self, o):
+        if isinstance(o, NoIndent):
+            key = uuid.uuid4().hex
+            self._replacement_map[key] = json.dumps(o.value, **self.kwargs)
+            return "@@%s@@" % (key,)
+        else:
+            return super(NoIndentEncoder, self).default(o)
+
+    def encode(self, o):
+        result = super(NoIndentEncoder, self).encode(o)
+        for k, v in self._replacement_map.iteritems():
+            result = result.replace('"@@%s@@"' % (k,), v)
+        return result
 
 
 def read_first_header(data, offset):
@@ -84,11 +114,11 @@ def print_item(item_type, item_data, sub_units_names):
     elif item_type in ['typex7', 'int']:
         return item_data
     elif item_type in ['vec4f', 'vec3f', 'vec2f']:
-        return [float("{:.5e}".format(i)) for i in item_data]
+        return NoIndent([float("{:.4f}".format(i)) for i in item_data])
     elif item_type == 'time':
         return ctime(item_data[0])
     elif item_type in ['vec2i', 'typex8']:
-        return list(item_data)
+        return NoIndent(list(item_data))
     elif item_type == 'm4x3f':  # 'vec3f' in 'm4x3f'
         return [print_item('vec3f', item, sub_units_names) for item in item_data]
     else:
@@ -163,7 +193,7 @@ def unpack(data):
     '''if len(units_names) != len(ids_w_names):
         print "error, units != ids", len(units_names), len(ids_w_names), ", not all keys correct!"'''
 
-    return json.dumps(full_data, indent=2, separators=(',', ': '))
+    return json.dumps(full_data, cls=NoIndentEncoder, indent=2, separators=(',', ': '))
 
 
 # return units_size, ids, cur_p
@@ -206,7 +236,7 @@ def parse_data(data, cur_p, ids_w_names, sub_units_names):
     :param cur_p: pointer where to start
     :return: list with {key_id: [key_type, key_value]} items
     """
-    # TODO: split parsing and output to json\blkx
+    # TODO split parsing and output to json\blkx
     b_size, flat = read_first_header(data, cur_p)
     cur_p += 4
     full_data, cur_p = parse_inner(data, cur_p, b_size, ids_w_names, sub_units_names)
@@ -215,7 +245,10 @@ def parse_data(data, cur_p, ids_w_names, sub_units_names):
 
 def parse_inner(data, cur_p, b_size, ids_w_names, sub_units_names):
     # TODO: make class from it, drop ids_w_names, sub_units_names refs
-    curr_block = []
+    #curr_block = []
+    #curr_block = {}
+    curr_block = OrderedDict()
+    not_list = True  # flag for group_num == 0
     # print 'b_size', b_size
     while cur_p < len(data):
         flat_num, group_num = b_size
@@ -225,7 +258,15 @@ def parse_inner(data, cur_p, b_size, ids_w_names, sub_units_names):
                 b_value, b_off = get_block_value(data, cur_p, b_type)
                 cur_p += b_off
                 str_id, str_val = from_id_to_str(b_id, b_type, b_value, ids_w_names, sub_units_names)
-                curr_block.append({str_id: str_val})
+                if not_list:
+                    if str_id in curr_block:  # double, create list from dict
+                        curr_block = list([{c[0]: c[1]} for c in curr_block.iteritems()])
+                        curr_block.append({str_id: str_val})
+                        not_list = False
+                    else:
+                        curr_block[str_id] = str_val
+                else:
+                    curr_block.append({str_id: str_val})
             b_size = (0, group_num)
         else:  # flat_num == 0
             b_id, b_type = get_block_id_w_type(data, cur_p)
@@ -233,12 +274,22 @@ def parse_inner(data, cur_p, b_size, ids_w_names, sub_units_names):
             cur_p += b_off
             if b_value != (0, 0):  # not empty group
                 inner_block, cur_p = parse_inner(data, cur_p, b_value, ids_w_names, sub_units_names)
-                if len(inner_block) == 1:  # only 1 record, can be extracted from list
-                    inner_block = inner_block[0]
+                '''if len(inner_block) == 1:  # only 1 record, can be extracted from list
+                    inner_block = inner_block[0]'''
             else:
                 inner_block = None
             str_id = ids_w_names[b_id]
-            curr_block.append({str_id: inner_block})
+            
+            if not_list:
+                if str_id in curr_block:  # double, create list from dict
+                    curr_block = list([{c[0]: c[1]} for c in curr_block.iteritems()])
+                    curr_block.append({str_id: inner_block})
+                    not_list = False
+                else:
+                    curr_block[str_id] = inner_block
+            else:
+                curr_block.append({str_id: inner_block})
+
             flat_num, group_num = b_size
             b_size = (flat_num, group_num - 1)
         if b_size == (0, 0):
