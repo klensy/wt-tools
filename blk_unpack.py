@@ -76,9 +76,9 @@ def print_item(item_type, item_data, sub_units_names):
     elif item_type == 'float':
         return float("{:.4f}".format(item_data))
     elif item_type == 'bool':
-        return 'yes' if item_data else 'no'
+        return True if item_data else False
     elif item_type == 'typex':
-        return 'yes' if not item_data else 'no'
+        return True if not item_data else False
     elif item_type == 'color':
         return "#{:x}".format(item_data)
     elif item_type in ['typex7', 'int']:
@@ -101,7 +101,8 @@ def from_id_to_str(id, type, value, ids_w_names, sub_units_names):
     item_type = type_list[type]
     if item_type != 'size':
         item_value = print_item(item_type, value, sub_units_names)
-        return {'key': item_id, 'type': item_type, 'value': item_value}
+        #return {'key': item_id, 'type': item_type, 'value': item_value}
+        return item_id, item_value  # for json
     else:
         return {item_id: []}
 
@@ -162,7 +163,7 @@ def unpack(data):
     '''if len(units_names) != len(ids_w_names):
         print "error, units != ids", len(units_names), len(ids_w_names), ", not all keys correct!"'''
 
-    return json.dumps(full_data)
+    return json.dumps(full_data, indent=2, separators=(',', ': '))
 
 
 # return units_size, ids, cur_p
@@ -205,6 +206,7 @@ def parse_data(data, cur_p, ids_w_names, sub_units_names):
     :param cur_p: pointer where to start
     :return: list with {key_id: [key_type, key_value]} items
     """
+    # TODO: split parsing and output to json\blkx
     b_size, flat = read_first_header(data, cur_p)
     cur_p += 4
     full_data, cur_p = parse_inner(data, cur_p, b_size, ids_w_names, sub_units_names)
@@ -222,13 +224,19 @@ def parse_inner(data, cur_p, b_size, ids_w_names, sub_units_names):
                 b_id, b_type = get_block_id_w_type(data, cur_p)
                 b_value, b_off = get_block_value(data, cur_p, b_type)
                 cur_p += b_off
-                curr_block.append(from_id_to_str(b_id, b_type, b_value, ids_w_names, sub_units_names))
+                str_id, str_val = from_id_to_str(b_id, b_type, b_value, ids_w_names, sub_units_names)
+                curr_block.append({str_id: str_val})
             b_size = (0, group_num)
         else:  # flat_num == 0
             b_id, b_type = get_block_id_w_type(data, cur_p)
             b_value, b_off = get_block_value(data, cur_p, b_type)
             cur_p += b_off
-            inner_block, cur_p = parse_inner(data, cur_p, b_value, ids_w_names, sub_units_names)
+            if b_value != (0, 0):  # not empty group
+                inner_block, cur_p = parse_inner(data, cur_p, b_value, ids_w_names, sub_units_names)
+                if len(inner_block) == 1:  # only 1 record, can be extracted from list
+                    inner_block = inner_block[0]
+            else:
+                inner_block = None
             str_id = ids_w_names[b_id]
             curr_block.append({str_id: inner_block})
             flat_num, group_num = b_size
