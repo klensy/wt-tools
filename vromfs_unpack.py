@@ -7,6 +7,12 @@ vrfs_magic = 'VRFs'
 vrfs_not_packed_magic = 0x80000000
 vrfs_type = {'packed': 0x0, 'not_packed': 0x1}
 
+'''
+In 1.45.11.71 update, in char.vromfs.bin.dec changed byte in data[0x1d]: 0x20 -> 0x30.
+Seems it points to (file_names_table_off - 0x1d), other files offsets don't changed.
+
+For now, VRFS.added_off used as start offset for (file_names_table_off-0x1d) for vrfs['packed'] type
+'''
 VRFS = namedtuple('VRFS', 'added_off total_files_off file_content_start_off file_names_table_off')
 
 packed_vrfs = VRFS(0x1d, 0x31, 0x2d, 0x3d)
@@ -115,7 +121,7 @@ def unpack(filename, dist_dir):
     total_files = struct.unpack_from('I', data, curr_vrfs.total_files_off)[0]
     print "total files: %d" % (total_files)
 
-    names_list = get_names_list(data, curr_vrfs, total_files)
+    names_list = get_names_list(data, curr_vrfs, total_files, vrfs_curr_type)
     content_list = get_content_list(data, curr_vrfs, total_files)
 
     for i in xrange(total_files):
@@ -124,12 +130,21 @@ def unpack(filename, dist_dir):
             f.write(content_list[i])
 
 
-def get_names_list(data, curr_vrfs, total_files):
+def get_names_list(data, curr_vrfs, total_files, vrfs_curr_type):
+    names_offsets = []
+    if vrfs_curr_type == vrfs_type['packed']:
+        table_start_offset = struct.unpack_from('I', data, curr_vrfs.added_off)[0]
+        table_start_offset += curr_vrfs.added_off
+    else:
+        table_start_offset = curr_vrfs.file_names_table_off
+    for i in xrange(total_files):
+        offset = struct.unpack_from('I', data, table_start_offset + i * 8)[0]
+        offset += curr_vrfs.added_off
+        names_offsets.append(offset)
+
     names_list = []
     for i in xrange(total_files):
-        name_off_src = curr_vrfs.file_names_table_off + i * 8
-        name_off = struct.unpack_from('I', data, name_off_src)[0]
-        name_off += curr_vrfs.added_off
+        name_off = names_offsets[i]
         name = []
         for c in xrange(name_off, len(data)):
             ch = data[c]
