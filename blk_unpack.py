@@ -12,6 +12,14 @@ type_list = {
     0x89: 'typex'  # same as 'bool', but reversed
     }
 
+# ingame names for types
+type_list_strict_blk = {
+    0x0: 'size', 0x1: 't', 0x2: 'i', 0x3: 'r', 0x4: 'p2',
+    0x5: 'p3', 0x6: 'vec4f', 0x7: 'vec2i', 0x8: 'typex8',  0x9: 'b',
+    0xa: 'color', 0xb: 'm', 0xc: 'time', 0x10: 'typex7',
+    0x89: 'b'  # same as 'bool', but reversed
+}
+
 # https://stackoverflow.com/questions/13249415
 # using private interface
 class NoIndent(object):
@@ -207,7 +215,7 @@ class BLK:
         to list if necessary(duplicated), and return block and is_not_list state
         """
         if out_type == BLK.output_type['strict_blk']:
-            block.append([str_id, val_type, value])
+            block.append((str_id, val_type, value))
         elif is_not_list:
             if str_id in block:  # duplicates, create list from dict
                 block = list([{c[0]: c[1]} for c in block.iteritems()])
@@ -290,7 +298,7 @@ class BLK:
         elif item_type in ['typex7', 'int']:
             return item_data
         elif item_type in ['vec4f', 'vec3f', 'vec2f']:
-            return NoIndent([float("{:.4f}".format(i)) for i in item_data])
+            return NoIndent([float("{:e}".format(i)) for i in item_data])
         elif item_type == 'time':
             return ctime(item_data[0])
         elif item_type in ['vec2i', 'typex8']:
@@ -301,13 +309,41 @@ class BLK:
             print "error, unknown type = {:x}".format(item_type)
             exit(1)
 
-    def print_strict_blk(self, s_data):
-        s_data_lines = []
-        # woork
-        return ''.join(s_data_lines)
+    # format output for strict blk type
+    def print_item_for_strict_blk(self, item_str_id, item_type, item_data,
+                                  indent_level):
+        # check if item_str_id is string with spaces, then add quotes
+        if ' ' in item_str_id:
+            item_str_id = '"' + item_str_id + '"'
+        ret = "{}{}:{}=".format('  ' * indent_level, item_str_id, type_list_strict_blk[item_type])
+        if type_list[item_type] == 'str':
+            return '{}"{}"'.format(ret, item_data)
+        elif type_list[item_type] == 'bool' or type_list[item_type] == 'typex':
+            item_val = 'yes' if bool(item_data) else 'no'
+            return ret + item_val
+        elif type_list[item_type] in ['vec4f', 'vec3f', 'vec2f', 'vec2i', 'typex8']:
+            return ret + repr(item_data)[1:-1]
+        elif type_list[item_type] == 'm4x3f':
+            return '{}{}'.format(ret, str(item_data).replace('],', ']'))
+        else:
+            return ret + str(item_data)
 
-    def print_strict_blk_inner(self, s_data):
-        pass
+    def print_strict_blk(self, s_data):
+        s_data_lines = self.print_strict_blk_inner(s_data)
+        return '\n'.join([str(i) for i in s_data_lines])
+
+    def print_strict_blk_inner(self, s_data, indent_level=0):
+        lines = []
+        for line in s_data:
+            if type_list[line[1]] != 'size':
+                lines.append(self.print_item_for_strict_blk(line[0], line[1], line[2], indent_level))
+            else:  # inner list
+                lines.append('')
+                lines.append('{}{}{{'.format('  ' * (indent_level), line[0]))
+                for i in self.print_strict_blk_inner(line[2], indent_level + 1):
+                    lines.append(i)
+                lines.append('{}}}'.format('  ' * indent_level))
+        return lines
 
 
 def main():
