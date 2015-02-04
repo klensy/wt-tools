@@ -15,8 +15,8 @@ type_list = {
 # ingame names for types
 type_list_strict_blk = {
     0x0: 'size', 0x1: 't', 0x2: 'i', 0x3: 'r', 0x4: 'p2',
-    0x5: 'p3', 0x6: 'vec4f', 0x7: 'vec2i', 0x8: 'typex8',  0x9: 'b',
-    0xa: 'color', 0xb: 'm', 0xc: 'time', 0x10: 'typex7',
+    0x5: 'p3', 0x6: 'vec4f', 0x7: 'ip2', 0x8: 'typex8',  0x9: 'b',
+    0xa: 'c', 0xb: 'm', 0xc: 'time', 0x10: 'typex7',
     0x89: 'b'  # same as 'bool', but reversed
 }
 
@@ -294,7 +294,7 @@ class BLK:
         elif item_type == 'typex':
             return True if not item_data else False
         elif item_type == 'color':
-            return "#{:x}".format(item_data)
+            return "#{:08x}".format(item_data)
         elif item_type in ['typex7', 'int']:
             return item_data
         elif item_type in ['vec4f', 'vec3f', 'vec2f']:
@@ -325,6 +325,9 @@ class BLK:
             return ret + repr(item_data)[1:-1]
         elif type_list[item_type] == 'm4x3f':
             return '{}{}'.format(ret, str(item_data).replace('],', ']'))
+        elif type_list[item_type] == 'color':
+            color_string = ', '.join([str(int(item_data[i: i+2], 16)) for i in xrange(1, 9, 2)])
+            return '{}{}'.format(ret, color_string)
         else:
             return ret + str(item_data)
 
