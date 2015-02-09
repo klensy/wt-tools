@@ -1,5 +1,5 @@
-import os.path, sys, struct, zlib
-import blk_unpack
+import os.path, struct, zlib
+import argparse
 
 
 def unpack(data, filename):
@@ -36,13 +36,12 @@ def unpack(data, filename):
     blk_files.append(('m_set', data[0x450: cur_p]))
     unc_replay, blk_off_from_end = zlib_decompress(data, cur_p)
     open(os.path.splitext(filename)[0] + '.' + 'wrplu', 'wb').write(unc_replay)
-    # old replays(1.43?) need +4 to start point
+    # old replays(1.43?) need +4 to start point: data[len(data) - blk_off_from_end + 4:]
     blk_files.append(('rez', data[len(data) - blk_off_from_end:]))
 
     for blk in blk_files:
-        with open(os.path.splitext(filename)[0] + '.' + blk[0] + '.blkx', 'wb') as f:
-            f.write('\n'.join(blk_unpack.unpack(blk[1])))
-            f.write('\n')
+        with open(os.path.splitext(filename)[0] + '.' + blk[0] + '.blk', 'wb') as f:
+            f.write(blk[1])
 
 
 def zlib_decompress(data, offset):
@@ -53,13 +52,12 @@ def zlib_decompress(data, offset):
 
 
 def main():
-    if len(sys.argv) != 2:
-        print 'usage: wrpl_unpack.py file'
-        sys.exit(1)
+    parser = argparse.ArgumentParser(description="Unpacks wrpl replays to wrplu data file and blk files")
+    parser.add_argument('filename', help="unpack from")
+    parse_result = parser.parse_args()
 
-    filename = sys.argv[1]
+    filename = parse_result.filename
 
-    data = []
     with open(filename, 'rb') as f:
         data = f.read()
 

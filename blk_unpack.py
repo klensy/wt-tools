@@ -7,7 +7,7 @@ import argparse
 
 type_list = {
     0x0: 'size', 0x1: 'str', 0x2: 'int', 0x3: 'float', 0x4: 'vec2f',
-    0x5: 'vec3f', 0x6: 'vec4f', 0x7: 'vec2i', 0x8: 'typex8',  0x9: 'bool',
+    0x5: 'vec3f', 0x6: 'vec4f', 0x7: 'vec2i', 0x8: 'typex8', 0x9: 'bool',
     0xa: 'color', 0xb: 'm4x3f', 0xc: 'time', 0x10: 'typex7',
     0x89: 'typex'  # same as 'bool', but reversed
     }
@@ -15,7 +15,7 @@ type_list = {
 # ingame names for types
 type_list_strict_blk = {
     0x0: 'size', 0x1: 't', 0x2: 'i', 0x3: 'r', 0x4: 'p2',
-    0x5: 'p3', 0x6: 'p4', 0x7: 'ip2', 0x8: 'typex8',  0x9: 'b',
+    0x5: 'p3', 0x6: 'p4', 0x7: 'ip2', 0x8: 'typex8', 0x9: 'b',
     0xa: 'c', 0xb: 'm', 0xc: 'time', 0x10: 'typex7',
     0x89: 'b'  # same as 'bool', but reversed
 }
@@ -326,7 +326,7 @@ class BLK:
         elif type_list[item_type] == 'm4x3f':
             return '{}{}'.format(ret, str(item_data).replace('],', ']'))
         elif type_list[item_type] == 'color':
-            color_string = ', '.join([str(int(item_data[i: i+2], 16)) for i in xrange(1, 9, 2)])
+            color_string = ', '.join([str(int(item_data[i: i + 2], 16)) for i in xrange(1, 9, 2)])
             return '{}{}'.format(ret, color_string)
         else:
             return ret + str(item_data)
