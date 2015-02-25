@@ -66,6 +66,7 @@ class BLK:
         self.num_of_units_in_file = 0
         self.ids_w_names = None  # {key_id: key_string} for keys
         self.blk_version = 0  # 2 for 1.45 and lower, 3 for 1.47
+        self.id_list = set()  # for self.blk_version == 3
 
     def unpack(self, out_type=output_type['json']):
         # check file header and version
@@ -141,8 +142,6 @@ class BLK:
                 units_names.append(self.data[cur_p: cur_p + unit_length])
                 cur_p += unit_length
             # print units_names
-            self.ids_w_names = dict([(i, units_names[i]) for i in xrange(self.num_of_units_in_file)])
-            # print self.ids_w_names
             # align by 0x4
             while cur_p % 4 != 0: cur_p += 1
             # print 'cur_p: %d' % cur_p
@@ -173,6 +172,9 @@ class BLK:
             # print 'cur_p: %d' % cur_p
 
             full_data = self.parse_data(cur_p, sub_units_names, out_type)
+            #print self.id_list
+            self.ids_w_names = dict([(j, units_names[i]) for i, j in enumerate(sorted(self.id_list))])
+            #print self.ids_w_names
             if out_type == BLK.output_type['json']:
                 return json.dumps(full_data, cls=NoIndentEncoder, indent=2, separators=(',', ': '))
             elif out_type == BLK.output_type['json_min']:
@@ -296,6 +298,7 @@ class BLK:
                 for i in xrange(flat_num):
                     b_id, b_type = self.get_block_id_w_type(cur_p)
                     b_value, b_off = self.get_block_value(cur_p, b_type)
+                    self.id_list.add(b_id)
                     id_list.append((b_id, b_type, b_value))
                     cur_p += 4
                     if type_list[b_type] == 'bool' or type_list[b_type] == 'typex':
@@ -324,6 +327,7 @@ class BLK:
                 b_id, b_type = self.get_block_id_w_type(cur_p)
                 b_value, b_off = self.get_block_value(cur_p, b_type)
                 # print 'b_id, b_type, b_value = ', b_id, b_type, b_value
+                self.id_list.add(b_id)
                 cur_p += b_off
                 if b_value != (0, 0):  # not empty group
                     inner_block, cur_p = self.parse_inner_v3(cur_p, b_value, sub_units_names, out_type)
@@ -368,7 +372,7 @@ class BLK:
         if self.blk_version == 2:
             item_id = self.ids_w_names[id]
         else:
-            item_id = str(id)
+            item_id = id
         item_type = type_list[type]
         if item_type != 'size':
             item_value = self.print_item(item_type, value, sub_units_names)
@@ -472,11 +476,18 @@ class BLK:
     def print_strict_blk_inner(self, s_data, indent_level=0):
         lines = []
         for line in s_data:
+            if self.blk_version == 2:
+                id_str_name = line[0]
+            elif self.blk_version == 3:
+                id_str_name = self.ids_w_names[line[0]]
+            else:
+                print 'error in line[0]'
+                exit(1)
             if type_list[line[1]] != 'size':
-                lines.append(self.print_item_for_strict_blk(line[0], line[1], line[2], indent_level))
+                lines.append(self.print_item_for_strict_blk(id_str_name, line[1], line[2], indent_level))
             else:  # inner list
                 lines.append('')
-                lines.append('{}{}{{'.format('  ' * (indent_level), line[0]))
+                lines.append('{}{}{{'.format('  ' * (indent_level), id_str_name))
                 for i in self.print_strict_blk_inner(line[2], indent_level + 1):
                     lines.append(i)
                 lines.append('{}}}'.format('  ' * indent_level))
