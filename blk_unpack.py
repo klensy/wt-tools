@@ -57,6 +57,7 @@ class BLK:
     sz_file_from_header_offset = 0x8
     num_of_units_in_file_offset = 0xc
     num_of_units_in_file_v3_offset = 0xe
+    units_length_type_v3_offset = 0xd
     bbf_magic = '\x00BBF'
     output_type = {'json': 0x0, 'json_min': 0x1, 'strict_blk': 0x2}
 
@@ -120,8 +121,19 @@ class BLK:
                 exit(1)
 
         elif self.blk_version == 3:
-            self.num_of_units_in_file = struct.unpack_from('B', self.data, BLK.num_of_units_in_file_v3_offset)[0]
-            cur_p = 0xf
+            units_length_type = struct.unpack_from('B', self.data, BLK.units_length_type_v3_offset)[0]
+            if units_length_type == 0x41:
+                cur_p = 0xf
+                self.num_of_units_in_file = struct.unpack_from('B', self.data, BLK.num_of_units_in_file_v3_offset)[0]
+            elif units_length_type == 0x81:
+                cur_p = 0x10
+                self.num_of_units_in_file = struct.unpack_from('H', self.data, BLK.num_of_units_in_file_v3_offset)[0]
+            else:
+                print 'error, unknown units_length_type = %d' % units_length_type
+                exit(1)
+
+            # print 'num_of_units_in_file = %d' % self.num_of_units_in_file
+
             units_names = []
             for i in xrange(self.num_of_units_in_file):
                 unit_length = struct.unpack_from('B', self.data, cur_p)[0]
@@ -129,12 +141,11 @@ class BLK:
                 units_names.append(self.data[cur_p: cur_p + unit_length])
                 cur_p += unit_length
             # print units_names
-
             self.ids_w_names = dict([(i, units_names[i]) for i in xrange(self.num_of_units_in_file)])
-            print self.ids_w_names
+            # print self.ids_w_names
             # align by 0x4
             while cur_p % 4 != 0: cur_p += 1
-            print 'cur_p: %d' % cur_p
+            # print 'cur_p: %d' % cur_p
             sub_units_block_length = struct.unpack_from('H', self.data, cur_p)[0]
             cur_p += 2
             sub_units_block_type = struct.unpack_from('B', self.data, cur_p + 1)[0]
@@ -148,7 +159,7 @@ class BLK:
             else:
                 print 'error, unknown sub_units_block_type: %d' % sub_units_block_type
                 exit(1)
-            print 'total_sub_units: %d' % total_sub_units
+            # print 'total_sub_units: %d' % total_sub_units
             sub_units_names = []
             for i in xrange(total_sub_units):
                 unit_length = struct.unpack_from('B', self.data, cur_p)[0]
@@ -159,7 +170,7 @@ class BLK:
 
             # align by 0x4
             while cur_p % 0x4 != 0: cur_p += 1
-            print 'cur_p: %d' % cur_p
+            # print 'cur_p: %d' % cur_p
 
             full_data = self.parse_data(cur_p, sub_units_names, out_type)
             if out_type == BLK.output_type['json']:
@@ -219,7 +230,10 @@ class BLK:
         # TODO split parsing and output to json\blkx
         b_size, flat = self.read_first_header(cur_p)
         cur_p += 4
-        full_data, cur_p = self.parse_inner(cur_p, b_size, sub_units_names, out_type)
+        if self.blk_version == 2:
+            full_data, cur_p = self.parse_inner(cur_p, b_size, sub_units_names, out_type)
+        else:
+            full_data, cur_p = self.parse_inner_v3(cur_p, b_size, sub_units_names, out_type)
         return full_data
 
     def read_first_header(self, offset):
@@ -233,7 +247,7 @@ class BLK:
         else:
             curr_block = OrderedDict()
         not_list = True  # flag for group_num == 0
-        print 'b_size', b_size
+        # print 'b_size', b_size
         while cur_p < len(self.data):
             flat_num, group_num = b_size
             if flat_num > 0:
@@ -252,6 +266,67 @@ class BLK:
                 cur_p += b_off
                 if b_value != (0, 0):  # not empty group
                     inner_block, cur_p = self.parse_inner(cur_p, b_value, sub_units_names, out_type)
+                else:
+                    inner_block = []
+                str_id, skip_block = self.from_id_to_str(b_id, b_type, b_value, sub_units_names)
+                curr_block, not_list = self.parse_inner_detect_take(not_list,
+                                                                    str_id, b_type,
+                                                                    inner_block, curr_block, out_type)
+
+                flat_num, group_num = b_size
+                b_size = (flat_num, group_num - 1)
+            if b_size == (0, 0):
+                    break
+        return curr_block, cur_p
+
+    def parse_inner_v3(self, cur_p, b_size, sub_units_names, out_type):
+        # TODO: make class from it, drop ids_w_names, sub_units_names refs
+        if out_type == BLK.output_type['strict_blk']:
+            curr_block = []
+        else:
+            curr_block = OrderedDict()
+        not_list = True  # flag for group_num == 0
+        # print 'b_size, cur_p =', b_size, cur_p
+        while cur_p < len(self.data):
+            flat_num, group_num = b_size
+            if flat_num > 0:
+                id_list = []
+                # blocks with inner val, like 'bool' and 'typex'
+                num_of_inner_values = 0
+                for i in xrange(flat_num):
+                    b_id, b_type = self.get_block_id_w_type(cur_p)
+                    b_value, b_off = self.get_block_value(cur_p, b_type)
+                    id_list.append((b_id, b_type, b_value))
+                    cur_p += 4
+                    if type_list[b_type] == 'bool' or type_list[b_type] == 'typex':
+                        num_of_inner_values += 1
+                # print id_list
+                # print 'cur_p start 2th cycle: %d' % cur_p
+                for b_id, b_type, b_value in id_list:
+                    if type_list[b_type] == 'bool' or type_list[b_type] == 'typex':
+                        str_id, str_val = self.from_id_to_str(b_id, b_type, b_value, sub_units_names)
+                        curr_block, not_list = self.parse_inner_detect_take(not_list,
+                                                                        str_id, b_type,
+                                                                        str_val, curr_block, out_type)
+                    else:
+                        # - 0x4 in next line b'couse of stupid func, need fix it
+                        b_value, b_off = self.get_block_value(cur_p - 0x4, b_type)
+                        str_id, str_val = self.from_id_to_str(b_id, b_type, b_value, sub_units_names)
+                        curr_block, not_list = self.parse_inner_detect_take(not_list,
+                                                                        str_id, b_type,
+                                                                        str_val, curr_block, out_type)
+                        # and there
+                        cur_p += b_off - 0x4
+                    # print curr_block
+                    # print 'cur_p: %d' % cur_p
+                b_size = (0, group_num)
+            else:  # flat_num == 0
+                b_id, b_type = self.get_block_id_w_type(cur_p)
+                b_value, b_off = self.get_block_value(cur_p, b_type)
+                # print 'b_id, b_type, b_value = ', b_id, b_type, b_value
+                cur_p += b_off
+                if b_value != (0, 0):  # not empty group
+                    inner_block, cur_p = self.parse_inner_v3(cur_p, b_value, sub_units_names, out_type)
                 else:
                     inner_block = []
                 str_id, skip_block = self.from_id_to_str(b_id, b_type, b_value, sub_units_names)
@@ -290,7 +365,10 @@ class BLK:
         return (block_group_id, block_in_group_num), block_type
 
     def from_id_to_str(self, id, type, value, sub_units_names):
-        item_id = self.ids_w_names[id]
+        if self.blk_version == 2:
+            item_id = self.ids_w_names[id]
+        else:
+            item_id = str(id)
         item_type = type_list[type]
         if item_type != 'size':
             item_value = self.print_item(item_type, value, sub_units_names)
