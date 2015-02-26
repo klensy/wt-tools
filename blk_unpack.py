@@ -145,19 +145,25 @@ class BLK:
             # align by 0x4
             while cur_p % 4 != 0: cur_p += 1
             # print 'cur_p: %d' % cur_p
+            # test if there exist sub_units_names block
             sub_units_block_length = struct.unpack_from('H', self.data, cur_p)[0]
-            cur_p += 2
-            sub_units_block_type = struct.unpack_from('B', self.data, cur_p + 1)[0]
-            cur_p += 2
-            if sub_units_block_type == 0x40:
-                total_sub_units = struct.unpack_from('B', self.data, cur_p)[0]
-                cur_p += 1
-            elif sub_units_block_type == 0x80:
-                total_sub_units = struct.unpack_from('H', self.data, cur_p)[0]
+            if sub_units_block_length > 0:
                 cur_p += 2
+                sub_units_block_type = struct.unpack_from('B', self.data, cur_p + 1)[0]
+                cur_p += 2
+                if sub_units_block_type == 0x40:
+                    total_sub_units = struct.unpack_from('B', self.data, cur_p)[0]
+                    cur_p += 1
+                elif sub_units_block_type == 0x80:
+                    total_sub_units = struct.unpack_from('H', self.data, cur_p)[0]
+                    cur_p += 2
+                else:
+                    print 'error, unknown sub_units_block_type: %d' % sub_units_block_type
+                    exit(1)
             else:
-                print 'error, unknown sub_units_block_type: %d' % sub_units_block_type
-                exit(1)
+                # no sub_units_names
+                total_sub_units = 0
+                cur_p += 4
             # print 'total_sub_units: %d' % total_sub_units
             sub_units_names = []
             for i in xrange(total_sub_units):
