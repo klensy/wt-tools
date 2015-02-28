@@ -178,9 +178,12 @@ class BLK:
             # print 'cur_p: %d' % cur_p
 
             full_data = self.parse_data(cur_p, sub_units_names, out_type)
-            #print self.id_list
+            # print self.id_list
+            # temp alert for error!
+            if len(self.id_list) != self.num_of_units_in_file:
+                print 'error, wrong key names in file'
             self.ids_w_names = dict([(j, units_names[i]) for i, j in enumerate(sorted(self.id_list))])
-            #print self.ids_w_names
+            # print self.ids_w_names
             if out_type == BLK.output_type['json']:
                 return json.dumps(full_data, cls=NoIndentEncoder, indent=2, separators=(',', ': '))
             elif out_type == BLK.output_type['json_min']:
@@ -315,15 +318,15 @@ class BLK:
                     if type_list[b_type] == 'bool' or type_list[b_type] == 'typex':
                         str_id, str_val = self.from_id_to_str(b_id, b_type, b_value, sub_units_names)
                         curr_block, not_list = self.parse_inner_detect_take(not_list,
-                                                                        str_id, b_type,
-                                                                        str_val, curr_block, out_type)
+                                                                            str_id, b_type,
+                                                                            str_val, curr_block, out_type)
                     else:
                         # - 0x4 in next line b'couse of stupid func, need fix it
                         b_value, b_off = self.get_block_value(cur_p - 0x4, b_type)
                         str_id, str_val = self.from_id_to_str(b_id, b_type, b_value, sub_units_names)
                         curr_block, not_list = self.parse_inner_detect_take(not_list,
-                                                                        str_id, b_type,
-                                                                        str_val, curr_block, out_type)
+                                                                            str_id, b_type,
+                                                                            str_val, curr_block, out_type)
                         # and there
                         cur_p += b_off - 0x4
                     # print curr_block
