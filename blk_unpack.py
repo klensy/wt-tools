@@ -86,7 +86,12 @@ class BLK:
             for unit_size in units_size:
                 units_names.append(self.data[cur_p: cur_p + unit_size])
                 cur_p += unit_size
-            self.ids_w_names = dict(zip(ids, units_names))
+
+            for u_name in units_names:
+                id_hash = self._hash_key_name(u_name)
+                while id_hash in self.ids_w_names:
+                    id_hash += 0x100
+                self.ids_w_names[id_hash] = u_name
 
             # align to 0x4
             while cur_p % 4 != 0: cur_p += 1
@@ -139,16 +144,10 @@ class BLK:
                 cur_p += 1
                 id_name = self.data[cur_p: cur_p + unit_length]
                 cur_p += unit_length
-
                 id_hash = self._hash_key_name(id_name)
-                # FIX: refactor (id, id) to id, and remove _wa_hash_tuples(self, key)
-                # with other functions
-                # temp tuple hash
-                t_id_hash = self._wa_hash_tuples(id_hash)
-                while t_id_hash in self.ids_w_names:
+                while id_hash in self.ids_w_names:
                     id_hash += 0x100
-                    t_id_hash = self._wa_hash_tuples(id_hash)
-                self.ids_w_names[t_id_hash] = id_name
+                self.ids_w_names[id_hash] = id_name
 
             # align by 0x4
             while cur_p % 4 != 0: cur_p += 1
@@ -218,7 +217,7 @@ class BLK:
                     # remember number of added keys before adding new
                     total_keys_old = len(keys)
                     for i in xrange(block_size):
-                        keys.append(((cur_p - 0x12) // 2 - total_keys_old, i))
+                        keys.append((cur_p - 0x12) // 2 - total_keys_old + i * 0x100)
                     cur_p += 2
                 keys_left -= block_size
                 while block_size > 0:
@@ -368,11 +367,10 @@ class BLK:
             block.append({str_id: value})
         return block, is_not_list
 
-    # return (block_group_id, in_group_num), block_type
-    # [BB?B]
+    # return block id with type
     def get_block_id_w_type(self, offset):
-        block_group_id, block_in_group_num, __, block_type = struct.unpack_from('BBBB', self.data, offset)
-        return (block_group_id, block_in_group_num), block_type
+        block_id, block_type = struct.unpack_from('HxB', self.data, offset)
+        return block_id, block_type
 
     def from_id_to_str(self, id, type, value, sub_units_names):
         item_id = self.ids_w_names[id]
@@ -386,40 +384,41 @@ class BLK:
     # return value, next offset
     def get_block_value(self, id_offset, block_type):
         if block_type in type_list.keys():
-            if type_list[block_type] == 'str':
+            block_type_from_list = type_list[block_type]
+            if block_type_from_list == 'str':
                 return struct.unpack_from('I', self.data, id_offset + 0x4)[0], 0x8
-            elif type_list[block_type] == 'int':
+            elif block_type_from_list == 'int':
                 return struct.unpack_from('i', self.data, id_offset + 0x4)[0], 0x8
-            elif type_list[block_type] == 'float':
+            elif block_type_from_list == 'float':
                 return struct.unpack_from('f', self.data, id_offset + 0x4)[0], 0x8
-            elif type_list[block_type] == 'typex':  # reversed 'bool'
+            elif block_type_from_list == 'typex':  # reversed 'bool'
                 return struct.unpack_from('B', self.data, id_offset + 0x2)[0], 0x4
-            elif type_list[block_type] == 'bool':
+            elif block_type_from_list == 'bool':
                 return struct.unpack_from('B', self.data, id_offset + 0x2)[0], 0x4
-            elif type_list[block_type] == 'size':  # [xxyy], xx - flat size, yy - group num
+            elif block_type_from_list == 'size':  # [xxyy], xx - flat size, yy - group num
                 return struct.unpack_from('HH', self.data, id_offset + 0x4), 0x8
-            elif type_list[block_type] == 'vec2f':
+            elif block_type_from_list == 'vec2f':
                 return struct.unpack_from('ff', self.data, id_offset + 0x4), 0xc
-            elif type_list[block_type] == 'vec3f':
+            elif block_type_from_list == 'vec3f':
                 return list(struct.unpack_from('fff', self.data, id_offset + 0x4)), 0x10
-            elif type_list[block_type] == 'vec2i':
+            elif block_type_from_list == 'vec2i':
                 return struct.unpack_from('II', self.data, id_offset + 0x4), 0xc
-            elif type_list[block_type] == 'time':  # unixtime
+            elif block_type_from_list == 'time':  # unixtime
                 return struct.unpack_from('II', self.data, id_offset + 0x4), 0xc
-            elif type_list[block_type] == 'vec4f':
+            elif block_type_from_list == 'vec4f':
                 return struct.unpack_from('ffff', self.data, id_offset + 0x4), 0x14
-            elif type_list[block_type] == 'm4x3f':
+            elif block_type_from_list == 'm4x3f':
                 ret = []
                 ret.append(self.get_block_value(id_offset, 0x5)[0])
                 ret.append(self.get_block_value(id_offset + 0xc, 0x5)[0])
                 ret.append(self.get_block_value(id_offset + 0x18, 0x5)[0])
                 ret.append(self.get_block_value(id_offset + 0x24, 0x5)[0])
                 return ret, 0x34
-            elif type_list[block_type] == 'color':  # color code, like #6120f00
+            elif block_type_from_list == 'color':  # color code, like #6120f00
                 return struct.unpack_from('I', self.data, id_offset + 0x4)[0], 0x8
-            elif type_list[block_type] == 'typex7':  # what type?
+            elif block_type_from_list == 'typex7':  # what type?
                 return struct.unpack_from('I', self.data, id_offset + 0x4)[0], 0x8
-            elif type_list[block_type] == 'typex8':  # what type?
+            elif block_type_from_list == 'typex8':  # what type?
                 return struct.unpack_from('III', self.data, id_offset + 0x4), 0x10
         else:
             print "error, unknown type = {:x}, position = {:x}".format(block_type, id_offset)
@@ -484,7 +483,7 @@ class BLK:
                 lines.append(self.print_item_for_strict_blk(id_str_name, line[1], line[2], indent_level))
             else:  # inner list
                 lines.append('')
-                lines.append('{}{}{{'.format('  ' * (indent_level), id_str_name))
+                lines.append('{}{}{{'.format('  ' * indent_level, id_str_name))
                 for i in self.print_strict_blk_inner(line[2], indent_level + 1):
                     lines.append(i)
                 lines.append('{}}}'.format('  ' * indent_level))
@@ -498,14 +497,6 @@ class BLK:
         for c in key:
             key_hash = (33 * key_hash + ord(c)) & 0xff
         return key_hash
-
-    def _wa_hash_tuples(self, key):
-        """
-        Workaround function for convert hashcode to tuple, remove when
-        refactor (id, id) tuples to 'id'
-        """
-        id_hash_str = "{:04x}".format(key)
-        return (int(id_hash_str[2:], 16), int(id_hash_str[:2], 16))
 
 
 def main():
