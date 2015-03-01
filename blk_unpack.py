@@ -64,9 +64,8 @@ class BLK:
     def __init__(self, data):
         self.data = data
         self.num_of_units_in_file = 0
-        self.ids_w_names = None  # {key_id: key_string} for keys
+        self.ids_w_names = dict()  # {key_id: key_string} for keys
         self.blk_version = 0  # 2 for 1.45 and lower, 3 for 1.47
-        self.id_list = set()  # for self.blk_version == 3
 
     def unpack(self, out_type=output_type['json']):
         # check file header and version
@@ -135,13 +134,22 @@ class BLK:
 
             # print 'num_of_units_in_file = %d' % self.num_of_units_in_file
 
-            units_names = []
             for i in xrange(self.num_of_units_in_file):
                 unit_length = struct.unpack_from('B', self.data, cur_p)[0]
                 cur_p += 1
-                units_names.append(self.data[cur_p: cur_p + unit_length])
+                id_name = self.data[cur_p: cur_p + unit_length]
                 cur_p += unit_length
-            # print units_names
+
+                id_hash = self._hash_key_name(id_name)
+                # FIX: refactor (id, id) to id, and remove _wa_hash_tuples(self, key)
+                # with other functions
+                # temp tuple hash
+                t_id_hash = self._wa_hash_tuples(id_hash)
+                while t_id_hash in self.ids_w_names:
+                    id_hash += 0x100
+                    t_id_hash = self._wa_hash_tuples(id_hash)
+                self.ids_w_names[t_id_hash] = id_name
+
             # align by 0x4
             while cur_p % 4 != 0: cur_p += 1
             # print 'cur_p: %d' % cur_p
@@ -178,12 +186,6 @@ class BLK:
             # print 'cur_p: %d' % cur_p
 
             full_data = self.parse_data(cur_p, sub_units_names, out_type)
-            # print self.id_list
-            # temp alert for error!
-            if len(self.id_list) != self.num_of_units_in_file:
-                print 'error, wrong key names in file'
-            self.ids_w_names = dict([(j, units_names[i]) for i, j in enumerate(sorted(self.id_list))])
-            # print self.ids_w_names
             if out_type == BLK.output_type['json']:
                 return json.dumps(full_data, cls=NoIndentEncoder, indent=2, separators=(',', ': '))
             elif out_type == BLK.output_type['json_min']:
@@ -307,7 +309,6 @@ class BLK:
                 for i in xrange(flat_num):
                     b_id, b_type = self.get_block_id_w_type(cur_p)
                     b_value, b_off = self.get_block_value(cur_p, b_type)
-                    self.id_list.add(b_id)
                     id_list.append((b_id, b_type, b_value))
                     cur_p += 4
                     if type_list[b_type] == 'bool' or type_list[b_type] == 'typex':
@@ -336,7 +337,6 @@ class BLK:
                 b_id, b_type = self.get_block_id_w_type(cur_p)
                 b_value, b_off = self.get_block_value(cur_p, b_type)
                 # print 'b_id, b_type, b_value = ', b_id, b_type, b_value
-                self.id_list.add(b_id)
                 cur_p += b_off
                 if b_value != (0, 0):  # not empty group
                     inner_block, cur_p = self.parse_inner_v3(cur_p, b_value, sub_units_names, out_type)
@@ -501,6 +501,23 @@ class BLK:
                     lines.append(i)
                 lines.append('{}}}'.format('  ' * indent_level))
         return lines
+
+    def _hash_key_name(self, key):
+        """
+        Generate hashcode from 'key' string name.
+        """
+        key_hash = 0x5
+        for c in key:
+            key_hash = (33 * key_hash + ord(c)) & 0xff
+        return key_hash
+
+    def _wa_hash_tuples(self, key):
+        """
+        Workaround function for convert hashcode to tuple, remove when
+        refactor (id, id) tuples to 'id'
+        """
+        id_hash_str = "{:04x}".format(key)
+        return (int(id_hash_str[2:], 16), int(id_hash_str[:2], 16))
 
 
 def main():
