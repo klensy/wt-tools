@@ -195,9 +195,6 @@ class BLK:
             else:
                 print "error out type: %s" % (out_type)
                 exit(1)
-
-            print 'not impl yet 3 version'
-            exit(1)
         else:
             print 'error, unknown version %d' % self.blk_version
             exit(1)
@@ -378,10 +375,7 @@ class BLK:
         return (block_group_id, block_in_group_num), block_type
 
     def from_id_to_str(self, id, type, value, sub_units_names):
-        if self.blk_version == 2:
-            item_id = self.ids_w_names[id]
-        else:
-            item_id = id
+        item_id = self.ids_w_names[id]
         item_type = type_list[type]
         if item_type != 'size':
             item_value = self.print_item(item_type, value, sub_units_names)
@@ -485,13 +479,7 @@ class BLK:
     def print_strict_blk_inner(self, s_data, indent_level=0):
         lines = []
         for line in s_data:
-            if self.blk_version == 2:
-                id_str_name = line[0]
-            elif self.blk_version == 3:
-                id_str_name = self.ids_w_names[line[0]]
-            else:
-                print 'error in line[0]'
-                exit(1)
+            id_str_name = line[0]
             if type_list[line[1]] != 'size':
                 lines.append(self.print_item_for_strict_blk(id_str_name, line[1], line[2], indent_level))
             else:  # inner list
