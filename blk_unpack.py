@@ -420,7 +420,7 @@ class BLK:
         if item_type == 'str':
             return sub_units_names[item_data]
         elif item_type == 'float':
-            return float("{:.4f}".format(item_data))
+            return float('%.4f' % item_data)
         elif item_type == 'bool':
             return True if item_data else False
         elif item_type == 'typex':
@@ -447,10 +447,10 @@ class BLK:
         # check if item_str_id is string with spaces, then add quotes
         if ' ' in item_str_id:
             item_str_id = '"' + item_str_id + '"'
-        ret = "{}{}:{}=".format('  ' * indent_level, item_str_id, type_list_strict_blk[item_type])
+        ret = "%s%s:%s=" % ('  ' * indent_level, item_str_id, type_list_strict_blk[item_type])
         item_type_from_list = type_list[item_type]
         if item_type_from_list == 'str':
-            return '{}"{}"'.format(ret, item_data)
+            return '%s"%s"' % (ret, item_data)
         elif item_type_from_list == 'bool' or item_type_from_list == 'typex':
             item_val = 'yes' if bool(item_data) else 'no'
             return ret + item_val
@@ -478,10 +478,10 @@ class BLK:
                 lines.append(self.print_item_for_strict_blk(id_str_name, line[1], line[2], indent_level))
             else:  # inner list
                 lines.append('')
-                lines.append('{}{}{{'.format('  ' * indent_level, id_str_name))
-                for i in self.print_strict_blk_inner(line[2], indent_level + 1):
-                    lines.append(i)
-                lines.append('{}}}'.format('  ' * indent_level))
+                lines.append('%s%s{' % ('  ' * indent_level, id_str_name))
+                # recursive call function and add results to list
+                lines.extend(self.print_strict_blk_inner(line[2], indent_level + 1))
+                lines.append('%s}' % ('  ' * indent_level))
         return lines
 
     def _hash_key_name(self, key):
