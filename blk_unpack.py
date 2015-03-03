@@ -10,7 +10,7 @@ type_list = {
     0x5: 'vec3f', 0x6: 'vec4f', 0x7: 'vec2i', 0x8: 'typex8', 0x9: 'bool',
     0xa: 'color', 0xb: 'm4x3f', 0xc: 'time', 0x10: 'typex7',
     0x89: 'typex'  # same as 'bool', but reversed
-    }
+}
 
 # ingame names for types
 type_list_strict_blk = {
@@ -53,7 +53,6 @@ class NoIndentEncoder(json.JSONEncoder):
 
 
 class BLK:
-
     sz_file_from_header_offset = 0x8
     num_of_units_in_file_offset = 0xc
     num_of_units_in_file_v3_offset = 0xe
@@ -285,7 +284,7 @@ class BLK:
                 flat_num, group_num = b_size
                 b_size = (flat_num, group_num - 1)
             if b_size == (0, 0):
-                    break
+                break
         return curr_block, cur_p
 
     def parse_inner_v3(self, cur_p, b_size, sub_units_names, out_type):
@@ -300,15 +299,11 @@ class BLK:
             flat_num, group_num = b_size
             if flat_num > 0:
                 id_list = []
-                # blocks with inner val, like 'bool' and 'typex'
-                num_of_inner_values = 0
                 for i in xrange(flat_num):
                     b_id, b_type = self.get_block_id_w_type(cur_p)
                     b_value, b_off = self.get_block_value(cur_p, b_type)
                     id_list.append((b_id, b_type, b_value))
                     cur_p += 4
-                    if type_list[b_type] == 'bool' or type_list[b_type] == 'typex':
-                        num_of_inner_values += 1
                 # print id_list
                 # print 'cur_p start 2th cycle: %d' % cur_p
                 for b_id, b_type, b_value in id_list:
@@ -326,8 +321,6 @@ class BLK:
                                                                             str_val, curr_block, out_type)
                         # and there
                         cur_p += b_off - 0x4
-                    # print curr_block
-                    # print 'cur_p: %d' % cur_p
                 b_size = (0, group_num)
             else:  # flat_num == 0
                 b_id, b_type = self.get_block_id_w_type(cur_p)
@@ -346,7 +339,7 @@ class BLK:
                 flat_num, group_num = b_size
                 b_size = (flat_num, group_num - 1)
             if b_size == (0, 0):
-                    break
+                break
         return curr_block, cur_p
 
     def parse_inner_detect_take(self, is_not_list, str_id, val_type, value, block, out_type):
@@ -358,7 +351,7 @@ class BLK:
             block.append((str_id, val_type, value))
         elif is_not_list:
             if str_id in block:  # duplicates, create list from dict
-                block = list([{c[0]: c[1]} for c in block.iteritems()])
+                block = [{c[0]: c[1]} for c in block.iteritems()]
                 block.append({str_id: value})
                 is_not_list = False
             else:
@@ -383,46 +376,45 @@ class BLK:
 
     # return value, next offset
     def get_block_value(self, id_offset, block_type):
-        if block_type in type_list.keys():
-            block_type_from_list = type_list[block_type]
-            if block_type_from_list == 'str':
-                return struct.unpack_from('I', self.data, id_offset + 0x4)[0], 0x8
-            elif block_type_from_list == 'int':
-                return struct.unpack_from('i', self.data, id_offset + 0x4)[0], 0x8
-            elif block_type_from_list == 'float':
-                return struct.unpack_from('f', self.data, id_offset + 0x4)[0], 0x8
-            elif block_type_from_list == 'typex':  # reversed 'bool'
-                return struct.unpack_from('B', self.data, id_offset + 0x2)[0], 0x4
-            elif block_type_from_list == 'bool':
-                return struct.unpack_from('B', self.data, id_offset + 0x2)[0], 0x4
-            elif block_type_from_list == 'size':  # [xxyy], xx - flat size, yy - group num
-                return struct.unpack_from('HH', self.data, id_offset + 0x4), 0x8
-            elif block_type_from_list == 'vec2f':
-                return struct.unpack_from('ff', self.data, id_offset + 0x4), 0xc
-            elif block_type_from_list == 'vec3f':
-                return list(struct.unpack_from('fff', self.data, id_offset + 0x4)), 0x10
-            elif block_type_from_list == 'vec2i':
-                return struct.unpack_from('II', self.data, id_offset + 0x4), 0xc
-            elif block_type_from_list == 'time':  # unixtime
-                return struct.unpack_from('II', self.data, id_offset + 0x4), 0xc
-            elif block_type_from_list == 'vec4f':
-                return struct.unpack_from('ffff', self.data, id_offset + 0x4), 0x14
-            elif block_type_from_list == 'm4x3f':
-                ret = []
-                ret.append(self.get_block_value(id_offset, 0x5)[0])
-                ret.append(self.get_block_value(id_offset + 0xc, 0x5)[0])
-                ret.append(self.get_block_value(id_offset + 0x18, 0x5)[0])
-                ret.append(self.get_block_value(id_offset + 0x24, 0x5)[0])
-                return ret, 0x34
-            elif block_type_from_list == 'color':  # color code, like #6120f00
-                return struct.unpack_from('I', self.data, id_offset + 0x4)[0], 0x8
-            elif block_type_from_list == 'typex7':  # what type?
-                return struct.unpack_from('I', self.data, id_offset + 0x4)[0], 0x8
-            elif block_type_from_list == 'typex8':  # what type?
-                return struct.unpack_from('III', self.data, id_offset + 0x4), 0x10
-        else:
+        if block_type not in type_list:
             print "error, unknown type = {:x}, position = {:x}".format(block_type, id_offset)
             exit(1)
+        block_type_from_list = type_list[block_type]
+        if block_type_from_list == 'str':
+            value, offset = struct.unpack_from('I', self.data, id_offset + 0x4)[0], 0x8
+        elif block_type_from_list == 'int':
+            value, offset = struct.unpack_from('i', self.data, id_offset + 0x4)[0], 0x8
+        elif block_type_from_list == 'float':
+            value, offset = struct.unpack_from('f', self.data, id_offset + 0x4)[0], 0x8
+        elif block_type_from_list == 'typex':  # reversed 'bool'
+            value, offset = struct.unpack_from('B', self.data, id_offset + 0x2)[0], 0x4
+        elif block_type_from_list == 'bool':
+            value, offset = struct.unpack_from('B', self.data, id_offset + 0x2)[0], 0x4
+        elif block_type_from_list == 'size':  # [xxyy], xx - flat size, yy - group num
+            value, offset = struct.unpack_from('HH', self.data, id_offset + 0x4), 0x8
+        elif block_type_from_list == 'vec2f':
+            value, offset = struct.unpack_from('ff', self.data, id_offset + 0x4), 0xc
+        elif block_type_from_list == 'vec3f':
+            value, offset = list(struct.unpack_from('fff', self.data, id_offset + 0x4)), 0x10
+        elif block_type_from_list == 'vec2i':
+            value, offset = struct.unpack_from('II', self.data, id_offset + 0x4), 0xc
+        elif block_type_from_list == 'time':  # unixtime
+            value, offset = struct.unpack_from('II', self.data, id_offset + 0x4), 0xc
+        elif block_type_from_list == 'vec4f':
+            value, offset = struct.unpack_from('ffff', self.data, id_offset + 0x4), 0x14
+        elif block_type_from_list == 'm4x3f':
+            ret = [self.get_block_value(id_offset, 0x5)[0],
+                   self.get_block_value(id_offset + 0xc, 0x5)[0],
+                   self.get_block_value(id_offset + 0x18, 0x5)[0],
+                   self.get_block_value(id_offset + 0x24, 0x5)[0]]
+            value, offset = ret, 0x34
+        elif block_type_from_list == 'color':  # color code, like #6120f00
+            value, offset = struct.unpack_from('I', self.data, id_offset + 0x4)[0], 0x8
+        elif block_type_from_list == 'typex7':  # what type?
+            value, offset = struct.unpack_from('I', self.data, id_offset + 0x4)[0], 0x8
+        elif block_type_from_list == 'typex8':  # what type?
+            value, offset = struct.unpack_from('III', self.data, id_offset + 0x4), 0x10
+        return value, offset
 
     def print_item(self, item_type, item_data, sub_units_names):
         if item_type == 'str':
@@ -456,16 +448,17 @@ class BLK:
         if ' ' in item_str_id:
             item_str_id = '"' + item_str_id + '"'
         ret = "{}{}:{}=".format('  ' * indent_level, item_str_id, type_list_strict_blk[item_type])
-        if type_list[item_type] == 'str':
+        item_type_from_list = type_list[item_type]
+        if item_type_from_list == 'str':
             return '{}"{}"'.format(ret, item_data)
-        elif type_list[item_type] == 'bool' or type_list[item_type] == 'typex':
+        elif item_type_from_list == 'bool' or item_type_from_list == 'typex':
             item_val = 'yes' if bool(item_data) else 'no'
             return ret + item_val
-        elif type_list[item_type] in ['vec4f', 'vec3f', 'vec2f', 'vec2i', 'typex8']:
+        elif item_type_from_list in ['vec4f', 'vec3f', 'vec2f', 'vec2i', 'typex8']:
             return ret + repr(item_data)[1:-1]
-        elif type_list[item_type] == 'm4x3f':
+        elif item_type_from_list == 'm4x3f':
             return '{}{}'.format(ret, str(item_data).replace('],', ']'))
-        elif type_list[item_type] == 'color':
+        elif item_type_from_list == 'color':
             color_string = ', '.join([str(int(item_data[i: i + 2], 16)) for i in xrange(1, 9, 2)])
             return '{}{}'.format(ret, color_string)
         else:
@@ -473,7 +466,9 @@ class BLK:
 
     def print_strict_blk(self, s_data):
         s_data_lines = self.print_strict_blk_inner(s_data)
-        return '\n'.join([str(i) for i in s_data_lines])
+        if s_data_lines[0] == '':
+            s_data_lines.pop(0)
+        return '\n'.join(s_data_lines)
 
     def print_strict_blk_inner(self, s_data, indent_level=0):
         lines = []
