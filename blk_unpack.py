@@ -1,5 +1,4 @@
 import struct
-from time import ctime
 import json
 from collections import OrderedDict
 import uuid
@@ -16,7 +15,7 @@ type_list = {
 type_list_strict_blk = {
     0x0: 'size', 0x1: 't', 0x2: 'i', 0x3: 'r', 0x4: 'p2',
     0x5: 'p3', 0x6: 'p4', 0x7: 'ip2', 0x8: 'typex8', 0x9: 'b',
-    0xa: 'c', 0xb: 'm', 0xc: 'time', 0x10: 'typex7',
+    0xa: 'c', 0xb: 'm', 0xc: 'i64', 0x10: 'typex7',
     0x89: 'b'  # same as 'bool', but reversed
 }
 
@@ -175,6 +174,10 @@ class BLK:
             for i in xrange(total_sub_units):
                 unit_length = struct.unpack_from('B', self.data, cur_p)[0]
                 cur_p += 1
+                # 2 byte string length
+                if unit_length >= 0x80:
+                    unit_length = (unit_length - 0x80) * 0x100 + struct.unpack_from('B', self.data, cur_p)[0]
+                    cur_p += 1
                 sub_units_names.append(self.data[cur_p: cur_p + unit_length])
                 cur_p += unit_length
             # print sub_units_names
@@ -432,7 +435,7 @@ class BLK:
         elif item_type in ['vec4f', 'vec3f', 'vec2f']:
             return NoIndent([float("{:e}".format(i)) for i in item_data])
         elif item_type == 'time':
-            return ctime(item_data[0])
+            return item_data[0]
         elif item_type in ['vec2i', 'typex8']:
             return NoIndent(list(item_data))
         elif item_type == 'm4x3f':  # 'vec3f' in 'm4x3f'
