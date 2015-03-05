@@ -3,6 +3,7 @@ import json
 from collections import OrderedDict
 import uuid
 import argparse
+import os.path
 
 type_list = {
     0x0: 'size', 0x1: 'str', 0x2: 'int', 0x3: 'float', 0x4: 'vec2f',
@@ -18,6 +19,15 @@ type_list_strict_blk = {
     0xa: 'c', 0xb: 'm', 0xc: 'i64', 0x10: 'typex7',
     0x89: 'b'  # same as 'bool', but reversed
 }
+
+
+class WrongFiletypeError(RuntimeError):
+    """
+    Throws when wrong header in file occurs.
+    """
+    def __init__(self, arg):
+        self.param = arg
+
 
 # https://stackoverflow.com/questions/13249415
 # using private interface
@@ -69,8 +79,7 @@ class BLK:
         # check file header and version
         # TODO: error handle
         if struct.unpack_from('4s', self.data, 0)[0] != BLK.bbf_magic:
-            print "wrong file type"
-            exit(1)
+            raise WrongFiletypeError("Wrong filetype")
 
         self.blk_version = struct.unpack_from('H', self.data, 0x4)[0]
         if self.blk_version == 2:  # 1.45
@@ -132,8 +141,7 @@ class BLK:
                 cur_p = 0x10
                 self.num_of_units_in_file = struct.unpack_from('H', self.data, BLK.num_of_units_in_file_v3_offset)[0]
             else:
-                print 'error, unknown units_length_type = %d' % units_length_type
-                exit(1)
+                raise TypeError('Unknown units_length_type = %d' % units_length_type)
 
             # print 'num_of_units_in_file = %d' % self.num_of_units_in_file
 
@@ -163,8 +171,7 @@ class BLK:
                     total_sub_units = struct.unpack_from('H', self.data, cur_p)[0]
                     cur_p += 2
                 else:
-                    print 'error, unknown sub_units_block_type: %d' % sub_units_block_type
-                    exit(1)
+                    raise TypeError('Unknown sub_units_block_type: %d' % sub_units_block_type)
             else:
                 # no sub_units_names
                 total_sub_units = 0
@@ -197,8 +204,7 @@ class BLK:
                 print "error out type: %s" % (out_type)
                 exit(1)
         else:
-            print 'error, unknown version %d' % self.blk_version
-            exit(1)
+            raise TypeError('Unknown version %d' % self.blk_version)
 
     # return units_size, ids, cur_p
     def get_unit_sizes_and_ids(self):
@@ -228,8 +234,7 @@ class BLK:
                     block_size -= 1
             return key_size, keys, cur_p
         else:
-            print 'error, unknown block = {:x}'.format(header_type)
-            exit(1)
+            raise TypeError('Unknown block = {:x}'.format(header_type))
 
     def parse_data(self, cur_p, sub_units_names, out_type):
         """
@@ -380,8 +385,7 @@ class BLK:
     # return value, next offset
     def get_block_value(self, id_offset, block_type):
         if block_type not in type_list:
-            print "error, unknown type = {:x}, position = {:x}".format(block_type, id_offset)
-            exit(1)
+            raise TypeError("Unknown type = {:x}, position = {:x}".format(block_type, id_offset))
         block_type_from_list = type_list[block_type]
         if block_type_from_list == 'str':
             value, offset = struct.unpack_from('I', self.data, id_offset + 0x4)[0], 0x8
@@ -441,8 +445,7 @@ class BLK:
         elif item_type == 'm4x3f':  # 'vec3f' in 'm4x3f'
             return [self.print_item('vec3f', item, sub_units_names) for item in item_data]
         else:
-            print "error, unknown type = {:x}".format(item_type)
-            exit(1)
+            raise TypeError("Unknown type = {:x}".format(item_type))
 
     # format output for strict blk type
     def print_item_for_strict_blk(self, item_str_id, item_type, item_data,
@@ -497,9 +500,33 @@ class BLK:
         return key_hash
 
 
+def unpack_dir(arg, dirname, names):
+    """
+    Func to os.path.walk for unpack blk files with 'arg' mod
+    """
+    for name in names:
+        subname = os.path.join(dirname, name)
+        if os.path.isfile(subname) and os.path.splitext(subname)[1] == '.blk':
+            print subname
+            with open(subname, 'rb') as f:
+                data = f.read()
+            if len(data) == 0:
+                print '    ', 'Empty file'
+                continue
+            blk = BLK(data)
+            with open(subname + 'x', 'w') as f:
+                # TODO: fix copy&paste exception block and better replace TypeError with custom exception type?
+                try:
+                    f.write(blk.unpack(arg))
+                except WrongFiletypeError, e:
+                    print '    ', e.param
+                except TypeError, e:
+                    print '    ', e.message
+
+
 def main():
     parser = argparse.ArgumentParser(description="Unpacks blk files to human readable version")
-    parser.add_argument('filename', help="unpack from")
+    parser.add_argument('filename', help="unpack from, file or directory")
     out_type_group = parser.add_mutually_exclusive_group()
     out_type_group.add_argument('--json', action="store_true", help="output in formatted json")
     out_type_group.add_argument('--json_min', action="store_true", help="output in minimal json")
@@ -507,7 +534,6 @@ def main():
     parse_result = parser.parse_args()
 
     filename = parse_result.filename
-    out_type = None
     if parse_result.json:
         out_type = BLK.output_type['json']
     elif parse_result.json_min:
@@ -517,17 +543,26 @@ def main():
     else:
         out_type = BLK.output_type['json']
 
-    with open(filename, 'rb') as f:
-        data = f.read()
+    if os.path.isfile(filename):
+        with open(filename, 'rb') as f:
+            data = f.read()
 
-    if len(data) == 0:
-        print "empty file"
-        exit(1)
+        if len(data) == 0:
+            print "Empty file"
+            exit(1)
 
-    blk = BLK(data)
+        blk = BLK(data)
+        with open(filename + 'x', 'w') as f:
+            try:
+                f.write(blk.unpack(out_type))
+            except WrongFiletypeError, e:
+                print '    ', e.param
+            except TypeError, e:
+                print '    ', e.message
 
-    with open(filename + 'x', 'w') as f:
-        f.write(blk.unpack(out_type))
+    else:  # recursively unpack directory
+        os.path.walk(filename, unpack_dir, out_type)
+
 
 
 if __name__ == '__main__':
