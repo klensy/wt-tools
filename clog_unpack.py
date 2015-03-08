@@ -2,9 +2,10 @@ import argparse
 
 
 def xxor(data, key):
-    d_data = bytearray()
+    d_data = bytearray(len(data))
+    key_length = len(key)
     for i, c in enumerate(data):
-        d_data.append(c ^ key[i % len(key)])
+        d_data[i] = (c ^ key[i % key_length])
     return d_data
 
 

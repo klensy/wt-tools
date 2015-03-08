@@ -306,11 +306,11 @@ class BLK:
         while cur_p < len(self.data):
             flat_num, group_num = b_size
             if flat_num > 0:
-                id_list = []
+                id_list = [None] * flat_num
                 for i in xrange(flat_num):
                     b_id, b_type = self.get_block_id_w_type(cur_p)
                     b_value, b_off = self.get_block_value(cur_p, b_type)
-                    id_list.append((b_id, b_type, b_value))
+                    id_list[i] = ((b_id, b_type, b_value))
                     cur_p += 4
                 # print id_list
                 # print 'cur_p start 2th cycle: %d' % cur_p
@@ -483,8 +483,7 @@ class BLK:
             if type_list[line[1]] != 'size':
                 lines.append(self.print_item_for_strict_blk(id_str_name, line[1], line[2], indent_level))
             else:  # inner list
-                lines.append('')
-                lines.append('%s%s{' % ('  ' * indent_level, id_str_name))
+                lines.append('\n%s%s{' % ('  ' * indent_level, id_str_name))
                 # recursive call function and add results to list
                 lines.extend(self.print_strict_blk_inner(line[2], indent_level + 1))
                 lines.append('%s}' % ('  ' * indent_level))
@@ -500,6 +499,23 @@ class BLK:
         return key_hash
 
 
+def unpack_file(filename, out_type):
+    with open(filename, 'rb') as f:
+        data = f.read()
+    if len(data) == 0:
+        print '    ', 'Empty file'
+        return
+    blk = BLK(data)
+    with open(filename + 'x', 'w') as f:
+        # TODO: fix copy&paste exception block and better replace TypeError with custom exception type?
+        try:
+            f.write(blk.unpack(out_type))
+        except WrongFiletypeError, e:
+            print '    ', e.param
+        except TypeError, e:
+            print '    ', e.message
+
+
 def unpack_dir(arg, dirname, names):
     """
     Func to os.path.walk for unpack blk files with 'arg' mod
@@ -508,20 +524,7 @@ def unpack_dir(arg, dirname, names):
         subname = os.path.join(dirname, name)
         if os.path.isfile(subname) and os.path.splitext(subname)[1] == '.blk':
             print subname
-            with open(subname, 'rb') as f:
-                data = f.read()
-            if len(data) == 0:
-                print '    ', 'Empty file'
-                continue
-            blk = BLK(data)
-            with open(subname + 'x', 'w') as f:
-                # TODO: fix copy&paste exception block and better replace TypeError with custom exception type?
-                try:
-                    f.write(blk.unpack(arg))
-                except WrongFiletypeError, e:
-                    print '    ', e.param
-                except TypeError, e:
-                    print '    ', e.message
+            unpack_file(subname, arg)
 
 
 def main():
@@ -544,21 +547,7 @@ def main():
         out_type = BLK.output_type['json']
 
     if os.path.isfile(filename):
-        with open(filename, 'rb') as f:
-            data = f.read()
-
-        if len(data) == 0:
-            print "Empty file"
-            exit(1)
-
-        blk = BLK(data)
-        with open(filename + 'x', 'w') as f:
-            try:
-                f.write(blk.unpack(out_type))
-            except WrongFiletypeError, e:
-                print '    ', e.param
-            except TypeError, e:
-                print '    ', e.message
+        unpack_file(filename, out_type)
 
     else:  # recursively unpack directory
         os.path.walk(filename, unpack_dir, out_type)
