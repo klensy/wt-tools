@@ -483,7 +483,8 @@ class BLK:
             if type_list[line[1]] != 'size':
                 lines.append(self.print_item_for_strict_blk(id_str_name, line[1], line[2], indent_level))
             else:  # inner list
-                lines.append('\n%s%s{' % ('  ' * indent_level, id_str_name))
+                lines.append('')
+                lines.append('%s%s{' % ('  ' * indent_level, id_str_name))
                 # recursive call function and add results to list
                 lines.extend(self.print_strict_blk_inner(line[2], indent_level + 1))
                 lines.append('%s}' % ('  ' * indent_level))
