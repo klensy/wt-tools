@@ -1,6 +1,6 @@
 ## War Thunder resource extraction tools
 
-Python scripts, that help you extract various resources from game: pictures, settings.
+Python scripts, that help you extract resources from game: fonts, textures, FM/DM of tanks and planes, parameters of cannons and machine guns, and other interesting stuff.
 
 ## Installation
 1. Download python 2.7.9 from [here], install it.
@@ -24,3 +24,6 @@ File will be extracted to `somefile.blkx`, this type of file contains settings.
 
 [here]:https://www.python.org/downloads/
 [description]:https://docs.python.org/2/using/windows.html#excursus-setting-environment-variables
+
+##  Would you like to know more?
+Read [wiki](https://github.com/klensy/wt-tools/wiki).
