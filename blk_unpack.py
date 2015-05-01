@@ -517,7 +517,7 @@ def unpack_file(filename, out_type):
             print '    ', e.message
 
 
-def unpack_dir(arg, dirname, names):
+def _unpack_dir(arg, dirname, names):
     """
     Func to os.path.walk for unpack blk files with 'arg' mod
     """
@@ -526,6 +526,13 @@ def unpack_dir(arg, dirname, names):
         if os.path.isfile(subname) and os.path.splitext(subname)[1] == '.blk':
             print subname
             unpack_file(subname, arg)
+
+
+def unpack_dir(dirname, out_type):
+    """
+    Unpack all *.blk files in `dirname` with `out_type` format.
+    """
+    os.path.walk(dirname, _unpack_dir, out_type)
 
 
 def main():
@@ -549,10 +556,8 @@ def main():
 
     if os.path.isfile(filename):
         unpack_file(filename, out_type)
-
-    else:  # recursively unpack directory
-        os.path.walk(filename, unpack_dir, out_type)
-
+    else:
+        unpack_dir(filename, out_type)
 
 
 if __name__ == '__main__':
