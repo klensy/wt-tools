@@ -29,11 +29,19 @@ def unpack(data, filename):
     visibility = data[0x28c:cur_p]
     print visibility'''
 
-    cur_p = 0x450 + 0x8  # BBF header + size
-    first_bbf_file_size = struct.unpack_from('I', data, cur_p)[0]
-    cur_p = 0x450 + first_bbf_file_size + 0xc
+    current_replay_version = struct.unpack_from('B', data, 0x4)[0]
+    if current_replay_version == 0x9a:  # 1.45
+        blk_start_off = 0x450
+    elif current_replay_version == 0xc8:  # 1.47
+        blk_start_off = 0x440
+    else:
+        raise TypeError
 
-    blk_files.append(('m_set', data[0x450: cur_p]))
+    cur_p = blk_start_off + 0x8  # BBF header + size
+    first_bbf_file_size = struct.unpack_from('I', data, cur_p)[0]
+    cur_p = blk_start_off + first_bbf_file_size + 0xc
+
+    blk_files.append(('m_set', data[blk_start_off: cur_p]))
     unc_replay, blk_off_from_end = zlib_decompress(data, cur_p)
     open(os.path.splitext(filename)[0] + '.' + 'wrplu', 'wb').write(unc_replay)
     # old replays(1.43?) need +4 to start point: data[len(data) - blk_off_from_end + 4:]
