@@ -1,6 +1,8 @@
 import os.path, struct, zlib
 import argparse
 
+WRPL_MAGIC = 0xe5ac0010
+
 
 def unpack(data, filename):
     blk_files = []
@@ -29,13 +31,15 @@ def unpack(data, filename):
     visibility = data[0x28c:cur_p]
     print visibility'''
 
+    if struct.unpack_from('>I', data, 0)[0] != WRPL_MAGIC:
+        raise TypeError("Wrong wrpl file")
     current_replay_version = struct.unpack_from('B', data, 0x4)[0]
     if current_replay_version == 0x9a:  # 1.45
         blk_start_off = 0x450
-    elif current_replay_version == 0xc8:  # 1.47
+    elif current_replay_version in [0xc8, 0xca]:  # 1.47
         blk_start_off = 0x440
     else:
-        raise TypeError
+        raise TypeError("Unknown wrpl version")
 
     cur_p = blk_start_off + 0x8  # BBF header + size
     first_bbf_file_size = struct.unpack_from('I', data, cur_p)[0]
