@@ -44,5 +44,50 @@ class BLKTestsNew(unittest.TestCase):
                                                      blk_unpack.BLK.output_type['json'])
         self.assertEqual(result_data, expected_data, msg="Wrong output blkx")
 
+    def test_new_blk_with_big_num_of_units_and_subunits(self):
+        """
+        To trigger units_length_type = 0x81 and
+        sub_units_block_type = 0x80
+        """
+        expected_data, result_data = read_and_unpack('gui.blk', 'gui.blkx',
+                                                     blk_unpack.BLK.output_type['strict_blk'])
+        self.assertEqual(result_data, expected_data, msg="Wrong output blkx")
+
+    def test_new_blk_with_zero_subunits(self):
+        """
+        To trigger sub_units_block_length == 0 and
+        total_sub_units = 0
+        """
+        expected_data, result_data = read_and_unpack('situationconst.blk', 'situationconst.blkx',
+                                                     blk_unpack.BLK.output_type['strict_blk'])
+        self.assertEqual(result_data, expected_data, msg="Wrong output blkx")
+
+    def test_new_blk_with_spaces_in_key(self):
+        """
+        Check case, when key contain spaces:
+            "random from":i=0
+        and check type_list[int]
+        """
+        expected_data, result_data = read_and_unpack('assaults_template.blk', 'assaults_template.blkx',
+                                                     blk_unpack.BLK.output_type['strict_blk'])
+        self.assertEqual(result_data, expected_data, msg="Wrong output blkx")
+
+    def test_new_blk_with_array_type(self):
+        """
+        Check type_list[m4x3f]
+        """
+        expected_data, result_data = read_and_unpack('bzt_part.blk', 'bzt_part.blkx',
+                                                     blk_unpack.BLK.output_type['strict_blk'])
+        self.assertEqual(result_data, expected_data, msg="Wrong output blkx")
+
+    def test_new_blk_with_big_unit_length(self):
+        """
+        Check long unit values strings:
+            unit_length >= 0x80:
+        """
+        expected_data, result_data = read_and_unpack('ct_test.blk', 'ct_test.blkx',
+                                                     blk_unpack.BLK.output_type['strict_blk'])
+        self.assertEqual(result_data, expected_data, msg="Wrong output blkx")
+
 if __name__ == '__main__':
     unittest.main()
