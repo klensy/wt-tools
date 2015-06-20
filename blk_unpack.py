@@ -195,9 +195,9 @@ class BLK:
 
             full_data = self.parse_data(cur_p, sub_units_names, out_type)
             if out_type == BLK.output_type['json']:
-                return json.dumps(full_data, cls=NoIndentEncoder, indent=2, separators=(',', ': '))
+                return json.dumps(full_data, ensure_ascii=False, cls=NoIndentEncoder, indent=2, separators=(',', ': '))
             elif out_type == BLK.output_type['json_min']:
-                return json.dumps(full_data, cls=NoIndentEncoder, separators=(',', ':'))
+                return json.dumps(full_data, ensure_ascii=False, cls=NoIndentEncoder, separators=(',', ':'))
             elif out_type == BLK.output_type['strict_blk']:
                 return self.print_strict_blk(full_data)
             else:

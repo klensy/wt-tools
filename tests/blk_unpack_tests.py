@@ -89,5 +89,13 @@ class BLKTestsNew(unittest.TestCase):
                                                      blk_unpack.BLK.output_type['strict_blk'])
         self.assertEqual(result_data, expected_data, msg="Wrong output blkx")
 
+    def test_new_blk_with_utf8_strings(self):
+        """
+        Check with russian comment lines
+        """
+        expected_data, result_data = read_and_unpack('lpt_part.blk', 'lpt_part.blkx',
+                                                     blk_unpack.BLK.output_type['json'])
+        self.assertEqual(result_data, expected_data, msg="Wrong output blkx")
+
 if __name__ == '__main__':
     unittest.main()
