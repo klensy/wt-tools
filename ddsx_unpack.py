@@ -1,4 +1,5 @@
-import struct, sys, pylzma, ctypes, os, zlib
+import struct, sys, pylzma, ctypes, zlib
+import os.path
 
 ddsx_types = ['DXT1', 'DXT5']
 dds_header = [
@@ -53,24 +54,48 @@ def unpack(data):
         return dds_data.raw + zlib.decompress(data[0x20:])
 
 
+def unpack_file(filename):
+    # TODO: eliminate copy&paste with blk_unpack
+    with open(filename, 'rb') as f:
+        data = f.read()
+    if len(data) == 0:
+        print "empty file"
+        return
+    out_file = unpack(data)
+    with open(filename[:-1], 'wb') as f:
+        f.write(out_file)
+
+
+def _unpack_dir(arg, dirname, names):
+    """
+    Func to os.path.walk for unpack files with 'arg' mod
+    """
+    for name in names:
+        subname = os.path.join(dirname, name)
+        if os.path.isfile(subname) and os.path.splitext(subname)[1] == '.ddsx':
+            print subname
+            unpack_file(subname)
+
+
+def unpack_dir(dirname):
+    """
+    Unpack all files in `dirname`
+    """
+    os.path.walk(dirname, _unpack_dir, None)
+
+
 def main():
     if len(sys.argv) != 2:
-        print 'usage: ddsx_unpack.py file'
+        print 'usage: ddsx_unpack.py PATH\n' \
+              'where PATH - file or folder'
         sys.exit(1)
 
     filename = sys.argv[1]
 
-    data = []
-    with open(filename, 'rb') as f:
-        data = f.read()
-
-    if len(data) == 0:
-        print "empty file"
-        exit(1)
-
-    dds_data = unpack(data)
-    with open(os.path.split(filename)[1].split('.')[0] + '.dds', 'wb') as f:
-        f.write(dds_data)
+    if os.path.isfile(filename):
+        unpack_file(filename)
+    else:
+        unpack_dir(filename)
 
 
 if __name__ == '__main__':
