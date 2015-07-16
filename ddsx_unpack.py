@@ -36,14 +36,19 @@ def unpack(data):
 
     dds_height = struct.unpack_from('H', data, 0xc)[0]
     dds_width = struct.unpack_from('H', data, 0xe)[0]
+    dds_mipmapcount = struct.unpack_from('B', data, 0x10)[0]
     dds_unpacked_body_size = struct.unpack_from('I', data, 0x18)[0]
     dds_body_size = struct.unpack_from('I', data, 0x1c)[0]
+    ddsx_unknown_flag_0 = struct.unpack_from('B', data, 0xa)
+    if ddsx_unknown_flag_0 in [0, 1]:
+        pass  # all unpack ok 11 c0 01 40, 11 40 01 40, 11 40 00 40
 
     dds_data = ctypes.create_string_buffer(0x80)
     struct.pack_into('128B', dds_data, 0, *dds_header)
     struct.pack_into('I', dds_data, 0xc, dds_width)
     struct.pack_into('I', dds_data, 0x10, dds_height)
     struct.pack_into('I', dds_data, 0x14, dds_unpacked_body_size)
+    struct.pack_into('B', dds_data, 0x1c, dds_mipmapcount)
     struct.pack_into('4s', dds_data, 0x54, header_format)
 
     if dds_body_size == 0:  # not packed
