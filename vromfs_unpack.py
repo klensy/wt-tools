@@ -4,7 +4,7 @@ import os, errno, sys, struct
 
 
 vrfs_magic = 'VRFs'
-vrfs_not_packed_magic = 0x80000000
+vrfs_not_packed_magic = [0x80000000, 0xc0000000]
 vrfs_type = {'packed': 0x0, 'not_packed': 0x1}
 
 '''
@@ -73,7 +73,7 @@ def decomp_and_write(file, is_store_temp_file=False):
     if struct.unpack_from('4s', f_data, 0)[0] != vrfs_magic:
         print "wrong vrfs type"
         exit(1)
-    if struct.unpack_from('I', f_data, 0xc)[0] == vrfs_not_packed_magic:
+    if struct.unpack_from('I', f_data, 0xc)[0] in vrfs_not_packed_magic:
         return f_data, vrfs_type["not_packed"]
     else:  # vrfs packed
         dec_data = decompress(f_data[0x10:])
