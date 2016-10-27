@@ -36,7 +36,7 @@ def unpack(data, filename):
     current_replay_version = struct.unpack_from('B', data, 0x4)[0]
     if current_replay_version == 0x9a:  # 1.45
         blk_start_off = 0x450
-    elif current_replay_version in [0xc8, 0xca, 0xe7]:  # 1.47, 1.51
+    elif current_replay_version in [0xc8, 0xca, 0xe7, 0x64]:  # 1.47, 1.51, 1.63
         blk_start_off = 0x440
     else:
         raise TypeError("Unknown wrpl version")
