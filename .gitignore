@@ -1,0 +1,5 @@
+# virtualenv
+venv/
+
+# IDEA files
+.idea/
