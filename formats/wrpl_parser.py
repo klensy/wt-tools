@@ -22,12 +22,13 @@ def simple_blk_build(obj):
     return "".join([obj.magic, struct.pack('>I', obj.unknown_0), struct.pack('<I', obj.blk_body_size), obj.blk_body])
 
 # i think not byte, but word\dword
-wrpl_version = "wrpl_version" / Enum(Byte,
-                                     version_1_45=0x9a,
-                                     version_1_47=0xc8,
-                                     version_1_49=0xca,
-                                     version_1_51=0xe7,
-                                     version_1_63=0x64)
+wrpl_version = "wrpl_version" / Enum(Int16ul,
+                                     version_1_45=0x889a,
+                                     version_1_47=0x88c8,
+                                     version_1_49=0x88ca,
+                                     version_1_51=0x88e7,
+                                     version_1_63=0x8964,
+                                     default=Error)
 
 simple_blk = "blk" / Struct(
     "magic" / Const(b"\x00BBF"),
