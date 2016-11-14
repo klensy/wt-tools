@@ -2,6 +2,29 @@ import zlib
 import struct
 from construct import *
 
+
+# http://stackoverflow.com/questions/279561
+def static_vars(**kwargs):
+    def decorate(func):
+        for k in kwargs:
+            setattr(func, k, kwargs[k])
+        return func
+    return decorate
+
+
+@static_vars(w_chunk_size=0)
+def last_chunk_size(size, action):
+    if "w_chunk_size" not in last_chunk_size.__dict__:
+        last_chunk_size.w_chunk_size = 0
+    if action == "set":
+        last_chunk_size.w_chunk_size = size
+        print "sett:", last_chunk_size.w_chunk_size
+    elif action == "get":
+        return last_chunk_size.w_chunk_size
+    else:
+        Exception("unknown action")
+
+
 point_f_3d = Struct(
     "x" / Float32l,
     "y" / Float32l,
@@ -32,16 +55,6 @@ subnode_0x000d = Struct(
     "point_3" / point_f_3d,
     "point_4" / point_f_3d,
     "magic_2" / Const(b"\x80"),
-    # "magic_3" / Enum(Int16ub,
-    #                  val_x41x15=0x4115,
-    #                  val_x40x5e=0x405e,
-    #                  val_x40x62=0x4062,
-    #                  val_x40x61=0x4061,
-    #                  val_x40x5c=0x405c,
-    #                  val_x40x60=0x4060,
-    #                  val_x40x65=0x4065,
-    #                  val_x44xa7=0x44a7),
-    # "magic_4" / Const(b"\x0b\x02")
 )
 
 # with some text and points
@@ -54,30 +67,19 @@ subnode_0x0000 = Struct(
     "magic_2" / Const(b"\x00")
 )
 
-# some_struct = "some_s" / Struct(
-#     "magic" / Const(b"\x58\x39\xd0\x01"),
-#     "field_0" / Enum(Int16ub,
-#                      val_0x0d=0x0d,
-#                      val_0x00=0x00),
-#     Probe(),
-#     Switch(this.field_0,
-#            # duplicate, i know
-#            {"val_0x0d": subnode_0x000d,
-#             "val_0x00": subnode_0x0000})
-# )
-
-# class PassAdapter(Adapter):
-#     # def _encode(self, obj, context):
-#     #     return obj
-#     def _decode(self, obj, context):
-#         return obj
-
 subnode_0x0004 = Struct(
     "first_name" / PascalString(Byte, encoding='ASCII'),
     "group_global_number" / Byte,
     "number" / Byte,
     "fun_words" / Array(this.number, PascalString(Byte)),
     Probe()
+)
+
+subnode_0x0006 = Struct(
+    "magic" / Const(b"\x00"),
+    "subnode_0006_index?" / Byte,
+    "words" / Array(2, PascalString(Byte)),
+    "data" / Bytes(85)
 )
 
 subnode_0x0007 = Struct(
@@ -97,6 +99,7 @@ chunk_x03x42 = Struct(
     # "data" / Int16ul,
     "magic3" / Const(b"\x00\x02"),
     "type2" / Int16ub,
+    Probe(),
     "chunk_x03x42_sw2" / Switch(this.type2, {
         0x5839: Struct(
             "magic2" / Const(b"\xd0\x01"),
@@ -104,21 +107,52 @@ chunk_x03x42 = Struct(
             Probe(),
             "chunk_x03x42_sw" / Switch(this.type, {
                 0x000d: subnode_0x000d,
+                0x0006: subnode_0x0006,
                 0x0007: subnode_0x0007
             },
                                        default=Error),
         ),
         0x582d: Struct(
-            "magic" / Const(b"\xf0\x00"),
-            "number" / Int16ul,
-            "data" / Array(this.number, Bytes(8))
+            # skip parsing this, till i have more ideas
+            # - 0x8 = headers size
+            "skip_size" / Computed(lambda ctx: last_chunk_size(0xdeadbeef, 'get') - 0x8),
+            "some_data" / Bytes(this.skip_size),
+            # need review parse this
+            # "magic" / Const(b"\xf0\x00"),
+            # "number" / Int16ul,
+            # Probe(),
+            # "data" / IfThenElse(this.number == 1,
+            #                     Struct(
+            #                         "data" / Bytes(51),
+            #                         "nickname" / CString(encoding="utf8"),
+            #                         # return 1 byte back, because null eaten by string
+            #                         Seek(-1, 1),
+            #                         # Bytes(50) or all zeroes?
+            #                         GreedyRange(Const(b"\x00")),
+            #                         Probe(),
+            #                         "is_guild" / Byte,
+            #                         "guild" / IfThenElse(this.is_guild == 0x40,
+            #                                              # there no guild name
+            #                                              Bytes(115)
+            #                                              ,
+            #                                              Struct(
+            #                                                  Seek(-1, 1),
+            #                                                  "guild_name" / PascalString(Byte),
+            #                                                  "data3" / Bytes(117)
+            #                                              )),
+            #                         Probe()
+            #                     ),
+            #                     Array(this.number, Bytes(8))
+            #                     )
         ),
         0x5828: Struct(
             "unknown" / Byte,
             "name" / PascalString(Byte),
             "size" / Int16ul,
             "data" / Bytes(this.size)
-        )
+        ),
+        # from t1.wrplu, unparsed
+        0x5873: Bytes(45)
     },
                                 default=Error),
 )
@@ -134,6 +168,7 @@ chunk_x0bx02 = Struct(
             "data" / Switch(this.type, {
                 0x0000: subnode_0x0000,
                 0x0004: subnode_0x0004,
+                0x0006: subnode_0x0006,
                 0x0007: subnode_0x0007,
                 0x000d: subnode_0x000d
             },
@@ -149,9 +184,52 @@ chunk_x0bx02 = Struct(
             "unknown3" / Byte
         ),
         # stub, till parse
-        0x582d: Bytes(4778),
+        0x582d: Struct(
+            # skip parsing this, till i have more ideas
+            # - 0x4 = headers size
+            "skip_size" / Computed(lambda ctx: last_chunk_size(0xdeadbeef, 'get') - 0x4),
+            "some_data" / Bytes(this.skip_size),
+            # "unknown_flag" / Int16ub,
+            # "data" / Switch(this.unknown_flag, {
+            #     0xf001: Bytes(4776),
+            #     0xf000: Struct(
+            #         # need review parse this
+            #         # "magic" / Const(b"\xf0\x00"),
+            #         "number" / Int16ul,
+            #         Probe(),
+            #         "data" / IfThenElse(this.number == 1,
+            #                             Struct(
+            #                                 "data" / Bytes(51),
+            #                                 "nickname" / CString(encoding="utf8"),
+            #                                 # return 1 byte back, because null eaten by string
+            #                                 Seek(-1, 1),
+            #                                 # Bytes(50) or all zeroes?
+            #                                 # "data2" / Bytes(50),
+            #                                 GreedyRange(Const(b"\x00")),
+            #                                 Probe(),
+            #                                 "is_guild" / Byte,
+            #                                 "guild" / IfThenElse(this.is_guild == 0x40,
+            #                                                      # there no guild name
+            #                                                      Bytes(115)
+            #                                                      ,
+            #                                                      Struct(
+            #                                                          Seek(-1, 1),
+            #                                                          "guild_name" / PascalString(Byte),
+            #                                                          Probe(),
+            #                                                          "data3" / Bytes(117)
+            #                                                      )),
+            #                                 Probe()
+            #                             ),
+            #                             Array(this.number, Bytes(8))
+            #                             )
+            #     )
+            # },
+            #                 default=Error)
+        ),
+        # Bytes(4778),
         # stub, till parse
-        0x58c3: Bytes(13)
+        0x58c3: Bytes(13),
+        0x587c: Bytes(11)
     },
                                default=Error),
 )
@@ -165,9 +243,11 @@ wrapper_chunk = Struct(
         "chunk_size" / IfThenElse(
             this.is_one_byte,
             BitsInteger(6),
-            BitsInteger(14))
+            BitsInteger(14)),
     ),
     "chunk_size" / Computed(this.chunk_params.chunk_size),
+    # global hack for skipping some chunks
+    "hollo" / Computed(lambda ctx: last_chunk_size(ctx.chunk_size, 'set')),
     "wrapper_chunk_probe" / Probe(),
     # "chunk_data" / Bytes(this.chunk_size),
     "chunk_data2" / Struct(
@@ -191,5 +271,5 @@ wrapper_chunk = Struct(
 )
 
 wrplu_file = "wrplu" / Struct(
-    GreedyRange(wrapper_chunk)
+    "wrap_array" / GreedyRange(wrapper_chunk)
 )
