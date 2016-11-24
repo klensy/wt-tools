@@ -21,11 +21,11 @@ def unpack(filename, dist_dir):
         data = f.read()
     parsed = vromfs_file.parse(data)
 
-    for i in xrange(parsed.files_count):
-        unpacked_filename = dist_dir + parsed.filename_table.filenames[i]
+    for i in xrange(parsed.body.files_count):
+        unpacked_filename = dist_dir + parsed.body.filename_table.filenames[i]
         mkdir_p(unpacked_filename)
         with open(unpacked_filename, 'wb') as f:
-            f.write(parsed.file_data_table.file_data_list[i].data)
+            f.write(parsed.body.file_data_table.file_data_list[i].data)
 
 
 def main():
