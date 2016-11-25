@@ -32,7 +32,8 @@ point_f_3d = Struct(
 )
 
 simple_blk = "blk" / Struct(
-    "magic" / Const(b"\x00BBF"),
+    # b"\x00BBF"
+    "magic" / Const(Int32ub, 0x00424246),
     "unknown_0" / Int32ub,
     "blk_body_size" / Int32ul,
     # maybe find more suitable format?
@@ -54,7 +55,7 @@ subnode_0x000d = Struct(
     "point_2" / point_f_3d,
     "point_3" / point_f_3d,
     "point_4" / point_f_3d,
-    "magic_2" / Const(b"\x80"),
+    "magic_2" / Const(Byte, 0x80),
 )
 
 # with some text and points
@@ -64,7 +65,7 @@ subnode_0x0000 = Struct(
     "field_1" / Bytes(233),
     "field_2" / Bytes(35),
     # "magic_2" / Const(b"\x00\x40\x5b\x0b\x02")
-    "magic_2" / Const(b"\x00")
+    "magic_2" / Const(Byte, 0x00)
 )
 
 subnode_0x0004 = Struct(
@@ -76,7 +77,7 @@ subnode_0x0004 = Struct(
 )
 
 subnode_0x0006 = Struct(
-    "magic" / Const(b"\x00"),
+    "magic" / Const(Byte, 0x00),
     "subnode_0006_index?" / Byte,
     "words" / Array(2, PascalString(Byte)),
     "data" / Bytes(85)
@@ -97,12 +98,12 @@ subnode_0x0007 = Struct(
 chunk_x03x42 = Struct(
     # "magic" / Const(b"\x03\x42"),
     # "data" / Int16ul,
-    "magic3" / Const(b"\x00\x02"),
+    "magic3" / Const(Int16ub, 0x0002),
     "type2" / Int16ub,
     Probe(),
     "chunk_x03x42_sw2" / Switch(this.type2, {
         0x5839: Struct(
-            "magic2" / Const(b"\xd0\x01"),
+            "magic2" / Const(Int16ub, 0xd001),
             "type" / Int16ub,
             Probe(),
             "chunk_x03x42_sw" / Switch(this.type, {
@@ -163,7 +164,7 @@ chunk_x0bx02 = Struct(
     "type2" / Int16ub,
     "chunk_x0bx02_sw" / Switch(this.type2, {
         0x5839: Struct(
-            "magic" / Const(b"\xd0\x01"),
+            "magic" / Const(Int16ub, 0xd001),
             "type" / Int16ub,
             "data" / Switch(this.type, {
                 0x0000: subnode_0x0000,
@@ -188,6 +189,7 @@ chunk_x0bx02 = Struct(
             # skip parsing this, till i have more ideas
             # - 0x4 = headers size
             "skip_size" / Computed(lambda ctx: last_chunk_size(0xdeadbeef, 'get') - 0x4),
+            # ProbeInto(this.skip_size),
             "some_data" / Bytes(this.skip_size),
             # "unknown_flag" / Int16ub,
             # "data" / Switch(this.unknown_flag, {
@@ -247,7 +249,7 @@ wrapper_chunk = Struct(
     ),
     "chunk_size" / Computed(this.chunk_params.chunk_size),
     # global hack for skipping some chunks
-    "hollo" / Computed(lambda ctx: last_chunk_size(ctx.chunk_size, 'set')),
+    Computed(lambda ctx: last_chunk_size(ctx.chunk_size, 'set')),
     "wrapper_chunk_probe" / Probe(),
     # "chunk_data" / Bytes(this.chunk_size),
     "chunk_data2" / Struct(
@@ -260,7 +262,7 @@ wrapper_chunk = Struct(
                 chunk_x03x42
             ),
             0x0b: Struct(
-                "magic" / Const(b"\x02"),
+                "magic" / Const(Byte, 0x02),
                 chunk_x0bx02
             )
         },
@@ -271,5 +273,5 @@ wrapper_chunk = Struct(
 )
 
 wrplu_file = "wrplu" / Struct(
-    "wrap_array" / GreedyRange(wrapper_chunk)
+    GreedyRange(wrapper_chunk)
 )
