@@ -3,6 +3,8 @@ import struct
 import zstd
 from construct import *
 
+from formats.common import zlib_stream
+
 NOT_PACKED_ADDED_OFFSET = 0x10
 NOT_PACKED_FILE_DATA_TABLE_OFFSET = 0x20
 NOT_PACKED_FILENAME_TABLE_OFFSET = 0x40
@@ -10,8 +12,8 @@ NOT_PACKED_FILENAME_TABLE_OFFSET = 0x40
 vromfs_type = Enum(
     Byte,
     unknown_type=0x40,
-    not_packed=0x80,
-    packed=0xc0
+    maybe_packed=0x80,
+    zstd_packed=0xc0
 )
 
 
@@ -27,6 +29,11 @@ class ZstdContext(Construct):
         dctx = zstd.ZstdDecompressor()
         decompressed_data = dctx.decompress(deobfs_compressed_data, max_output_size=ctx._._.header.original_size)
         ctx.parsed_data = vromfs_not_packed_body.parse(decompressed_data)
+
+
+class ZlibAdapter(Adapter):
+    def _decode(self, obj, context):
+        return vromfs_not_packed_body.parse(obj)
 
 
 class Obfs16Adapter(Adapter):
@@ -79,7 +86,7 @@ vromfs_not_packed_body = Struct(
     "file_data_table" / file_data_table,
 )
 
-vromfs_packed_body = Struct(
+vromfs_zstd_packed_body = Struct(
     "before_obfs" / Tell,
     "first_part" / If(
         this._._.header.packed_size >= 16,
@@ -98,17 +105,27 @@ vromfs_packed_body = Struct(
     Embedded(Computed(this.parsed_data))
 )
 
+vromfs_zlib_packed_body = Struct(
+    Embedded(zlib_stream),
+    Embedded(ZlibAdapter(Computed(this.decompressed_body)))
+)
+
 vromfs_header = Struct(
-    "magic" / Const(b"VRFs\x00\x00PC"),
+    # b"VRFs\x00\x00PC"
+    "magic" / Const(Int64ub, 0x5652467300005043),
     "original_size" / Int32ul,
     "packed_size" / Int24ul,
-    "vromfs_type" / vromfs_type
+    "vromfs_type" / vromfs_type,
+    "vromfs_packed_type" / Computed(lambda ctx: "zstd_packed" if ctx.vromfs_type == "zstd_packed" else
+        ("not_packed" if ctx.vromfs_type == "maybe_packed" and ctx.packed_size == 0 else
+        ("zlib_packed" if ctx.vromfs_type == "maybe_packed" and ctx.packed_size > 0 else "hoo")))
 )
 
 vromfs_body = Struct(
-    Embedded(Switch(this._.header.vromfs_type, {
+    Embedded(Switch(this._.header.vromfs_packed_type, {
         "not_packed": vromfs_not_packed_body,
-        "packed": vromfs_packed_body
+        "zstd_packed": vromfs_zstd_packed_body,
+        "zlib_packed": vromfs_zlib_packed_body
     }, default=Error)),
 )
 
