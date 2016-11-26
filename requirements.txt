@@ -1,3 +1,10 @@
+# for parsing
+# currently not fixed parsing of Const
 construct==2.8.8
+
+# for unpacking
 # currently not PR legacy support (of python-zstandard)
 zstandard==0.5.2
+
+# for building wt-tools
+cx_Freeze==4.3.4
