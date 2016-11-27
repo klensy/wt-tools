@@ -9,6 +9,7 @@ def static_vars(**kwargs):
         for k in kwargs:
             setattr(func, k, kwargs[k])
         return func
+
     return decorate
 
 
@@ -78,21 +79,63 @@ subnode_0x0004 = Struct(
 
 subnode_0x0006 = Struct(
     "magic" / Const(Byte, 0x00),
-    "subnode_0006_index?" / Byte,
+    "subnode_0006_index" / Byte,
+    "unknown_padding" / If(
+        lambda ctx: ctx.subnode_0006_index > 0x7f,
+        Byte),
     "words" / Array(2, PascalString(Byte)),
-    "data" / Bytes(85)
+    # bad hack, but don't know how detect 3th word
+    "word_3th_length" / Byte,
+    "3th_word" / IfThenElse(
+        lambda ctx: ctx.word_3th_length < 0x21,
+        Struct(
+            "word" / String(this._.word_3th_length),
+            "data" / Bytes(84)
+        ),
+        "data" / Bytes(85)
+    ),
 )
 
 subnode_0x0007 = Struct(
-    "unknown" / Enum(Byte,
-                     val_x03=0x03,
-                     val_x08=0x08,
-                     default=Error
-                     ),
+    "unknown" / Enum(
+        Byte,
+        val_x03=0x03,
+        val_x05=0x05,
+        val_x08=0x08,
+        default=Error
+    ),
     # "magic" / Const(b"\x08"),
     "subnode_0007_index" / Byte,
     "words" / Array(2, PascalString(Byte)),
+    Probe(),
     "data" / Bytes(88)
+)
+
+subnode_0x0009 = Struct(
+    "const" / Const(Byte, 0x00),
+    "subnode_0x0009_index" / Byte,
+    "data" / Bytes(50)
+)
+
+subnode_0x000b = Struct(
+    "subnode_000d_index" / Byte,
+    "const" / Const(Int16ub, 0x0001),
+    "word" / PascalString(Byte),
+    "data" / Bytes(27)
+)
+
+subnode_0x0011 = Struct(
+    "subnode_0x0011_index" / Byte,
+    "unknown_1" / Bytes(6),
+    "word_1" / PascalString(Byte),
+    "unknown_2" / Bytes(18),
+    "word_2" / PascalString(Byte),
+    "unknown" / Bytes(5)
+)
+
+subnode_0x0014 = Struct(
+    "subnode_0x0014_index" / Byte,
+    "data" / Bytes(66)
 )
 
 chunk_x03x42 = Struct(
@@ -171,7 +214,11 @@ chunk_x0bx02 = Struct(
                 0x0004: subnode_0x0004,
                 0x0006: subnode_0x0006,
                 0x0007: subnode_0x0007,
-                0x000d: subnode_0x000d
+                0x0009: subnode_0x0009,
+                0x000b: subnode_0x000b,
+                0x000d: subnode_0x000d,
+                0x0011: subnode_0x0011,
+                0x0014: subnode_0x0014
             },
                             default=Error),
         ),
@@ -253,21 +300,33 @@ wrapper_chunk = Struct(
     "wrapper_chunk_probe" / Probe(),
     # "chunk_data" / Bytes(this.chunk_size),
     "chunk_data2" / Struct(
-        # "type" / Int16ub,
-        # "chunk_data2_probe" / Probe(),
-        "type" / Byte,
-        "sw" / Switch(this.type, {
-            0x03: Struct(
-                "unknown" / Int24ul,
-                chunk_x03x42
-            ),
-            0x0b: Struct(
-                "magic" / Const(Byte, 0x02),
-                chunk_x0bx02
+
+        # skip small chunks
+        "data" / IfThenElse(
+            lambda ctx: ctx._.chunk_size < 0xf,
+            Bytes(this._.chunk_size),
+            Struct(
+                "type" / Byte,
+                "sw" / Switch(this.type, {
+                    0x03: Struct(
+                        "unknown" / Int24ul,
+                        chunk_x03x42
+                    ),
+                    0x0b: Struct(
+                        Struct(
+                            "switch_byte" / Byte,
+                            Switch(this.switch_byte, {
+                                0x02: chunk_x0bx02,
+                                0x03: Bytes(11)
+                            },
+                                   default=Error)
+                        )
+                    )
+                },
+                              default=Error),
+                Probe()
             )
-        },
-                      default=Error),
-        Probe()
+        ),
     ),
     Probe()
 )
