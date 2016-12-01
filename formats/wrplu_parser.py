@@ -1,5 +1,3 @@
-import zlib
-import struct
 from construct import *
 
 
@@ -19,12 +17,25 @@ def last_chunk_size(size, action):
         last_chunk_size.w_chunk_size = 0
     if action == "set":
         last_chunk_size.w_chunk_size = size
-        print "sett:", last_chunk_size.w_chunk_size
+        # print "sett:", last_chunk_size.w_chunk_size
     elif action == "get":
         return last_chunk_size.w_chunk_size
     else:
         Exception("unknown action")
 
+
+@singleton
+# For more informative error messages
+class InfoError(Construct):
+    def __init__(self):
+        super(self.__class__, self).__init__()
+        self.flagbuildnone = True
+
+    def _parse(self, stream, context, path):
+        raise ExplicitError("Error field was activated during parsing at 0x%x offset" % (stream.tell(),))
+
+    def _build(self, obj, stream, context, path):
+        raise ExplicitError("Error field was activated during parsing at 0x%x offset" % (stream.tell(),))
 
 point_f_3d = Struct(
     "x" / Float32l,
@@ -97,16 +108,24 @@ subnode_0x0006 = Struct(
 )
 
 subnode_0x0007 = Struct(
-    "unknown" / Enum(
+    "unknown_1" / Enum(
         Byte,
         val_x03=0x03,
         val_x05=0x05,
         val_x08=0x08,
-        default=Error
+        default=InfoError
     ),
-    # "magic" / Const(b"\x08"),
     "subnode_0007_index" / Byte,
-    "words" / Array(2, PascalString(Byte)),
+    "unknown_2" / Byte,
+    # some empty byte, seek 1 byte back
+    "words" / IfThenElse(
+        this.unknown_2 == 0x0,
+        PascalString(Byte),
+        Struct(
+            Seek(-1, 1),
+            Array(2, PascalString(Byte))
+        ),
+    ),
     Probe(),
     "data" / Bytes(88)
 )
@@ -114,6 +133,9 @@ subnode_0x0007 = Struct(
 subnode_0x0009 = Struct(
     "const" / Const(Byte, 0x00),
     "subnode_0x0009_index" / Byte,
+    "unknown_data" / If(
+        lambda ctx: ctx.subnode_0x0009_index > 0x7f,
+        Byte),
     "data" / Bytes(50)
 )
 
@@ -126,7 +148,14 @@ subnode_0x000b = Struct(
 
 subnode_0x0011 = Struct(
     "subnode_0x0011_index" / Byte,
-    "unknown_1" / Bytes(6),
+    "unknown_1_1" / Byte,
+    "type" / Byte,
+    "unknown_1_2" / Switch(
+        this.type, {
+            0x01: Bytes(4),
+            0x03: Bytes(3)
+        },
+        default=InfoError),
     "word_1" / PascalString(Byte),
     "unknown_2" / Bytes(18),
     "word_2" / PascalString(Byte),
@@ -139,8 +168,6 @@ subnode_0x0014 = Struct(
 )
 
 chunk_x03x42 = Struct(
-    # "magic" / Const(b"\x03\x42"),
-    # "data" / Int16ul,
     "magic3" / Const(Int16ub, 0x0002),
     "type2" / Int16ub,
     Probe(),
@@ -154,7 +181,7 @@ chunk_x03x42 = Struct(
                 0x0006: subnode_0x0006,
                 0x0007: subnode_0x0007
             },
-                                       default=Error),
+                                       default=InfoError),
         ),
         0x582d: Struct(
             # skip parsing this, till i have more ideas
@@ -198,12 +225,10 @@ chunk_x03x42 = Struct(
         # from t1.wrplu, unparsed
         0x5873: Bytes(45)
     },
-                                default=Error),
+                                default=InfoError),
 )
 
 chunk_x0bx02 = Struct(
-    # "magic" / Const(b"\x0b\x02"),
-    # "magic2" / Const(b"\x58\x39\xd0\x01"),
     "type2" / Int16ub,
     "chunk_x0bx02_sw" / Switch(this.type2, {
         0x5839: Struct(
@@ -220,7 +245,7 @@ chunk_x0bx02 = Struct(
                 0x0011: subnode_0x0011,
                 0x0014: subnode_0x0014
             },
-                            default=Error),
+                            default=InfoError),
         ),
         0x5828: Struct(
             "unknown" / Byte,
@@ -273,14 +298,16 @@ chunk_x0bx02 = Struct(
             #                             )
             #     )
             # },
-            #                 default=Error)
+            #                 default=InfoError)
         ),
         # Bytes(4778),
         # stub, till parse
         0x58c3: Bytes(13),
+        # c&p from chunk_x03x42
+        0x5873: Bytes(45),
         0x587c: Bytes(11)
     },
-                               default=Error),
+                               default=InfoError),
 )
 
 wrapper_chunk = Struct(
@@ -319,11 +346,11 @@ wrapper_chunk = Struct(
                                 0x02: chunk_x0bx02,
                                 0x03: Bytes(11)
                             },
-                                   default=Error)
+                                   default=InfoError)
                         )
                     )
                 },
-                              default=Error),
+                              default=InfoError),
                 Probe()
             )
         ),
