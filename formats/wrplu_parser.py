@@ -53,31 +53,10 @@ simple_blk = "blk" / Struct(
 )
 
 # with some text and points
-subnode_0x000d = Struct(
-    # "field_0" / Enum(Int16ub,
-    #                  val_0x0d=0x0d),
-    # 0x000d index in file, should be 1,2,3...
-    "subnode_000d_index" / Byte,
-    # word length?
-    # "field_2" / Enum(Byte,
-    #                  val_0x0b=0x0b),
-    "field_2" / PascalString(Byte),
-    "field_3" / PascalString(Byte),
-    "point_1" / point_f_3d,
-    "point_2" / point_f_3d,
-    "point_3" / point_f_3d,
-    "point_4" / point_f_3d,
-    "magic_2" / Const(Byte, 0x80),
-)
-
-# with some text and points
 subnode_0x0000 = Struct(
-    # "field_0" / Enum(Int16ub,
-    #                  val_0x00=0x00),
-    "field_1" / Bytes(233),
-    "field_2" / Bytes(35),
-    # "magic_2" / Const(b"\x00\x40\x5b\x0b\x02")
-    "magic_2" / Const(Byte, 0x00)
+    "unknown_1" / Bytes(26),
+    "word" / PascalString(Byte),
+    "unknown_2" / Bytes(231)
 )
 
 subnode_0x0004 = Struct(
@@ -126,8 +105,10 @@ subnode_0x0007 = Struct(
             Array(2, PascalString(Byte))
         ),
     ),
-    Probe(),
-    "data" / Bytes(88)
+    # if length != 0, then there 3th word
+    "3th_word" / PascalString(Byte),
+    "subnode_0x0007_probe" / Probe(),
+    "data" / Bytes(87)
 )
 
 subnode_0x0009 = Struct(
@@ -139,11 +120,28 @@ subnode_0x0009 = Struct(
     "data" / Bytes(50)
 )
 
+# battle objective?
 subnode_0x000b = Struct(
     "subnode_000d_index" / Byte,
     "const" / Const(Int16ub, 0x0001),
     "word" / PascalString(Byte),
     "data" / Bytes(27)
+)
+
+# with some text and points
+subnode_0x000d = Struct(
+    # 0x000d index in file, should be 1,2,3...
+    "subnode_000d_index" / Byte,
+    # word length?
+    # "field_2" / Enum(Byte,
+    #                  val_0x0b=0x0b),
+    "field_2" / PascalString(Byte),
+    "field_3" / PascalString(Byte),
+    "point_1" / point_f_3d,
+    "point_2" / point_f_3d,
+    "point_3" / point_f_3d,
+    "point_4" / point_f_3d,
+    "magic_2" / Const(Byte, 0x80),
 )
 
 subnode_0x0011 = Struct(
@@ -162,6 +160,8 @@ subnode_0x0011 = Struct(
     "unknown" / Bytes(5)
 )
 
+# wrong parse in test0.wrplu at 0x5f2
+# wrapper_chunk size wrong
 subnode_0x0014 = Struct(
     "subnode_0x0014_index" / Byte,
     "data" / Bytes(66)
@@ -322,6 +322,7 @@ wrapper_chunk = Struct(
             BitsInteger(14)),
     ),
     "chunk_size" / Computed(this.chunk_params.chunk_size),
+    Check(lambda ctx: ctx.chunk_size != 0),
     # global hack for skipping some chunks
     Computed(lambda ctx: last_chunk_size(ctx.chunk_size, 'set')),
     "wrapper_chunk_probe" / Probe(),
@@ -351,7 +352,7 @@ wrapper_chunk = Struct(
                     )
                 },
                               default=InfoError),
-                Probe()
+                # Probe()
             )
         ),
     ),
