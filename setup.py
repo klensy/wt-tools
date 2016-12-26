@@ -2,20 +2,39 @@ from cx_Freeze import setup, Executable
 
 packages = ["construct"]
 includes = []
-excludes = []
+excludes = ["socket"]
 includefiles = []
 
-executable = Executable(
+blk_unpack = Executable(
+    script="blk_unpack.py",
+)
+
+clog_unpack = Executable(
+    script="clog_unpack.py",
+)
+
+ddsx_unpack = Executable(
+    script="ddsx_unpack.py",
+)
+
+dxp_unpack = Executable(
+    script="dxp_unpack.py",
+)
+
+vromfs_unpacker = Executable(
     script="vromfs_unpacker.py",
-    compress=True,
+)
+
+wrpl_unpacker = Executable(
+    script="wrpl_unpacker.py",
 )
 
 setup(
-    name="vromfs_unpacker",
-    version="0.2.0.1",
+    name="wt-tools",
+    version="0.2.0",
     author='klensy',
-    description="description",
+    description="War Thunder resource extraction tools",
     options={"build_exe": {"includes": includes, "excludes": excludes, "include_files": includefiles,
                            "packages": packages}},
-    executables=[executable]
+    executables=[blk_unpack, clog_unpack, ddsx_unpack, dxp_unpack, vromfs_unpacker, wrpl_unpacker]
 )
