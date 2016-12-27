@@ -23,9 +23,12 @@ class ZstdContext(Construct):
 
     def _parse(self, stream, ctx, path):
         need_read_size = ctx._._.header.packed_size - (16 if ctx.first_part else 0) - (16 if ctx.second_part else 0)
+        # ugly: align read size to 4 bytes
+        need_read_size = need_read_size // 4 * 4
         deobfs_compressed_data = (ctx.first_part if ctx.first_part else '') + \
                                  stream.getvalue()[ctx.middle_data_offset:ctx.middle_data_offset + need_read_size] + \
-                                 (ctx.second_part.data if ctx.second_part.data else '')
+                                 (ctx.second_part.data if ctx.second_part.data else '') + \
+                                 (ctx.align_tail if ctx.align_tail else '')
         dctx = zstd.ZstdDecompressor()
         decompressed_data = dctx.decompress(deobfs_compressed_data, max_output_size=ctx._._.header.original_size)
         ctx.parsed_data = vromfs_not_packed_body.parse(decompressed_data)
@@ -38,12 +41,12 @@ class ZlibAdapter(Adapter):
 
 class Obfs16Adapter(Adapter):
     def _decode(self, obj, context):
-        return struct.pack("<LLLL", *[x ^ y for (x, y) in zip(obj, [0xAA55AA55, 0xF00FF00F, 0xAA55AA55, 0x12481248])])
+        return struct.pack("<4L", *[x ^ y for (x, y) in zip(obj, [0xAA55AA55, 0xF00FF00F, 0xAA55AA55, 0x12481248])])
 
 
 class Obfs32Adapter(Adapter):
     def _decode(self, obj, context):
-        return struct.pack("<LLLL", *[x ^ y for (x, y) in zip(obj, [0x12481248, 0xAA55AA55, 0xF00FF00F, 0xAA55AA55])])
+        return struct.pack("<4L", *[x ^ y for (x, y) in zip(obj, [0x12481248, 0xAA55AA55, 0xF00FF00F, 0xAA55AA55])])
 
 
 filename_table = Struct(
@@ -96,11 +99,17 @@ vromfs_zstd_packed_body = Struct(
     "second_part" / If(
         this._._.header.packed_size >= 32,
         Struct(
-            # 16 = obfuscated part len
-            Seek(this._._._.header.packed_size - 16 - (16 if this.first_part else 0), 1),
+            # 32 = length of obfuscated header + footer of data
+            # ugly: align seek with 4 bytes
+            Seek((this._._._.header.packed_size - 32) // 4 * 4, 1),
             "data" / Obfs32Adapter(Int32ul[4])
         )),
     "after_obfs" / Tell,
+    # last part, if packed_size % 4 != 0
+    "align_tail" / If(
+        this._._.header.packed_size % 4,
+        Bytes(this._._.header.packed_size % 4)
+    ),
     ZstdContext(),
     Embedded(Computed(this.parsed_data))
 )
