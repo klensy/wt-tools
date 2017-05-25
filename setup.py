@@ -1,8 +1,8 @@
 from cx_Freeze import setup, Executable
 
-packages = ["construct"]
+packages = ["construct", "zstd", "pylzma"]
 includes = []
-excludes = ["socket"]
+excludes = ["socket", "unittest"]
 includefiles = []
 
 blk_unpack = Executable(
@@ -31,7 +31,7 @@ wrpl_unpacker = Executable(
 
 setup(
     name="wt-tools",
-    version="0.2.0",
+    version="0.2.1-dev",
     author='klensy',
     description="War Thunder resource extraction tools",
     options={"build_exe": {"includes": includes, "excludes": excludes, "include_files": includefiles,

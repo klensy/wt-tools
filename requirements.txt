@@ -3,8 +3,7 @@
 construct==2.8.8
 
 # for unpacking
-# currently not PR legacy support (of python-zstandard)
-zstandard==0.5.2
+zstandard==0.8.1 --install-option="--legacy"
 pylzma==0.4.8
 
 # for building wt-tools
