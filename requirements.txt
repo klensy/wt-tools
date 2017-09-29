@@ -1,10 +1,12 @@
 # for parsing
 # currently not fixed parsing of Const
-construct==2.8.8
+construct==2.8.12
 
 # for unpacking
-zstandard==0.8.1 --install-option="--legacy"
-pylzma==0.4.8
+# zstandard==0.8.1 --install-option="--legacy"
+git+https://github.com/indygreg/python-zstandard.git@0.8.1 --install-option="--legacy"
+pylzma==0.4.9
 
 # for building wt-tools
-cx_Freeze==4.3.4
+# cx_Freeze v5.x branch commit
+git+https://github.com/anthony-tuininga/cx_Freeze.git@e9272a53624da9da7a2cd0dc7b55ed5fce655251
