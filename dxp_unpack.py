@@ -23,45 +23,43 @@ def mkdir_p(path):
 
 def main():
     if len(sys.argv) != 2:
-        print 'usage: dxp_unpack.py file'
+        print('usage: dxp_unpack.py file')
         sys.exit(1)
 
     filename = sys.argv[1]
     dist_dir = filename + '_u/'
 
-    data = []
     with open(filename, 'rb') as f:
         data = f.read()
 
     if len(data) == 0:
-        print "empty file"
+        print("empty file")
         exit(1)
 
-    if struct.unpack_from('4s', data, 0)[0] != dxp2_magic:
-        print "wrong dxp type"
+    if struct.unpack_from('4s', data, 0)[0].decode('utf-8') != dxp2_magic:
+        print("wrong dxp type")
         exit(1)
 
     total_files = struct.unpack_from('H', data, 0x8)[0]
-    print "total files:", total_files
+    print("total files:", total_files)
     cur_p = file_names_block_offset
 
     file_names = []
-    for i in xrange(total_files):
+    for i in range(total_files):
         old_cur_p = cur_p
-        while ord(data[cur_p]) != 0x0:
+        while data[cur_p] != 0x0:
             cur_p += 1
-        file_names.append(data[old_cur_p: cur_p])
+        file_names.append(data[old_cur_p: cur_p].decode('utf-8'))
         cur_p += 1
 
     for i in file_names:
-        print i
+        print(i)
 
     cur_p = struct.unpack_from('I', data, second_block_offset_from)[0] + 0x10
     offsets_block_1 = []
-    for i in xrange(total_files):
+    for i in range(total_files):
         offsets_block_1.append(struct.unpack_from('I', data, cur_p)[0])
         cur_p += 0x8
-    # print offsets_block_1
 
     '''
     from end:
@@ -70,10 +68,9 @@ def main():
     '''
     cur_p = struct.unpack_from('I', data, dds_block_offset_from)[0] + 0x10
     dds_block = []
-    for i in xrange(total_files):
+    for i in range(total_files):
         dds_block.append(data[cur_p: cur_p + 0x20])
         cur_p += 0x20
-    # print dds_block
 
     '''
         0xc - offset
@@ -81,12 +78,11 @@ def main():
     '''
     cur_p = struct.unpack_from('I', data, block_3_offset_from)[0] + 0x10
     block_3 = []
-    for i in xrange(total_files):
+    for i in range(total_files):
         offset = struct.unpack_from('I', data, cur_p + 0xc)[0]
         size = struct.unpack_from('I', data, cur_p + 0x10)[0]
         block_3.append((offset, size))
         cur_p += 0x18
-    # print block_3
 
     mkdir_p(dist_dir)
     for i, (off, size) in enumerate(block_3):

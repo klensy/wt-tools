@@ -21,8 +21,8 @@ def unpack(filename, dist_dir):
         data = f.read()
     parsed = vromfs_file.parse(data)
 
-    for i in xrange(parsed.body.files_count):
-        unpacked_filename = dist_dir + parsed.body.filename_table.filenames[i]
+    for i in range(parsed.body.files_count):
+        unpacked_filename = dist_dir + parsed.body.filename_table.filenames[i].decode("utf-8")
         mkdir_p(unpacked_filename)
         with open(unpacked_filename, 'wb') as f:
             f.write(parsed.body.file_data_table.file_data_list[i].data)
@@ -30,7 +30,7 @@ def unpack(filename, dist_dir):
 
 def main():
     if len(sys.argv) != 2:
-        print 'usage: vromfs_unpacker.py file'
+        print('usage: vromfs_unpacker.py file')
         sys.exit(1)
 
     filename = sys.argv[1]

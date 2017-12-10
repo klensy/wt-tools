@@ -56,7 +56,7 @@ class NoIndentEncoder(json.JSONEncoder):
 
     def encode(self, o):
         result = super(NoIndentEncoder, self).encode(o)
-        for k, v in self._replacement_map.iteritems():
+        for k, v in self._replacement_map.items():
             result = result.replace('"@@%s@@"' % (k,), v)
         return result
 
@@ -78,7 +78,7 @@ class BLK:
     def unpack(self, out_type=output_type['json']):
         # check file header and version
         # TODO: error handle
-        if struct.unpack_from('4s', self.data, 0)[0] != BLK.bbf_magic:
+        if struct.unpack_from('4s', self.data, 0)[0].decode("utf-8") != BLK.bbf_magic:
             raise WrongFiletypeError("Wrong filetype")
 
         self.blk_version = struct.unpack_from('H', self.data, 0x4)[0]
@@ -129,7 +129,7 @@ class BLK:
             elif out_type == BLK.output_type['strict_blk']:
                 return self.print_strict_blk(full_data)
             else:
-                print "error out type: %s" % (out_type)
+                print("error out type: %s" % out_type)
                 exit(1)
 
         elif self.blk_version == 3:
@@ -145,10 +145,10 @@ class BLK:
 
             # print 'num_of_units_in_file = %d' % self.num_of_units_in_file
 
-            for i in xrange(self.num_of_units_in_file):
+            for i in range(self.num_of_units_in_file):
                 unit_length = struct.unpack_from('B', self.data, cur_p)[0]
                 cur_p += 1
-                id_name = self.data[cur_p: cur_p + unit_length]
+                id_name = self.data[cur_p: cur_p + unit_length].decode('utf-8')
                 cur_p += unit_length
                 id_hash = self._hash_key_name(id_name)
                 while id_hash in self.ids_w_names:
@@ -178,7 +178,7 @@ class BLK:
                 cur_p += 4
             # print 'total_sub_units: %d' % total_sub_units
             sub_units_names = []
-            for i in xrange(total_sub_units):
+            for i in range(total_sub_units):
                 unit_length = struct.unpack_from('B', self.data, cur_p)[0]
                 cur_p += 1
                 # 2 byte string length
@@ -201,7 +201,7 @@ class BLK:
             elif out_type == BLK.output_type['strict_blk']:
                 return self.print_strict_blk(full_data)
             else:
-                print "error out type: %s" % (out_type)
+                print("error out type: %s" % out_type)
                 exit(1)
         else:
             raise TypeError('Unknown version %d' % self.blk_version)
@@ -224,7 +224,7 @@ class BLK:
                     block_size = struct.unpack_from('H', self.data, cur_p)[0]
                     # remember number of added keys before adding new
                     total_keys_old = len(keys)
-                    for i in xrange(block_size):
+                    for i in range(block_size):
                         keys.append((cur_p - 0x12) // 2 - total_keys_old + i * 0x100)
                     cur_p += 2
                 keys_left -= block_size
@@ -267,7 +267,7 @@ class BLK:
         while cur_p < len(self.data):
             flat_num, group_num = b_size
             if flat_num > 0:
-                for i in xrange(flat_num):
+                for i in range(flat_num):
                     b_id, b_type = self.get_block_id_w_type(cur_p)
                     b_value, b_off = self.get_block_value(cur_p, b_type)
                     cur_p += b_off
@@ -307,7 +307,7 @@ class BLK:
             flat_num, group_num = b_size
             if flat_num > 0:
                 id_list = [None] * flat_num
-                for i in xrange(flat_num):
+                for i in range(flat_num):
                     b_id, b_type = self.get_block_id_w_type(cur_p)
                     b_value, b_off = self.get_block_value(cur_p, b_type)
                     id_list[i] = ((b_id, b_type, b_value))
@@ -359,7 +359,7 @@ class BLK:
             block.append((str_id, val_type, value))
         elif is_not_list:
             if str_id in block:  # duplicates, create list from dict
-                block = [{c[0]: c[1]} for c in block.iteritems()]
+                block = [{c[0]: c[1]} for c in block.items()]
                 block.append({str_id: value})
                 is_not_list = False
             else:
@@ -425,7 +425,7 @@ class BLK:
 
     def print_item(self, item_type, item_data, sub_units_names):
         if item_type == 'str':
-            return sub_units_names[item_data]
+            return sub_units_names[item_data].decode("utf-8")
         elif item_type == 'float':
             return float('%.4f' % item_data)
         elif item_type == 'bool':
@@ -465,7 +465,7 @@ class BLK:
         elif item_type_from_list == 'm4x3f':
             return '{}{}'.format(ret, str(item_data).replace('],', ']'))
         elif item_type_from_list == 'color':
-            color_string = ', '.join([str(int(item_data[i: i + 2], 16)) for i in xrange(1, 9, 2)])
+            color_string = ', '.join([str(int(item_data[i: i + 2], 16)) for i in range(1, 9, 2)])
             return '{}{}'.format(ret, color_string)
         else:
             return ret + str(item_data)
@@ -504,35 +504,30 @@ def unpack_file(filename, out_type):
     with open(filename, 'rb') as f:
         data = f.read()
     if len(data) == 0:
-        print '    ', 'Empty file'
+        print('    ', 'Empty file')
         return
     blk = BLK(data)
-    with open(filename + 'x', 'w') as f:
+    with open(filename + 'x', 'w', encoding='utf-8') as f:
         # TODO: fix copy&paste exception block and better replace TypeError with custom exception type?
         try:
-            f.write(blk.unpack(out_type))
-        except WrongFiletypeError, e:
-            print '    ', e.param
-        except TypeError, e:
-            print '    ', e.message
-
-
-def _unpack_dir(arg, dirname, names):
-    """
-    Func to os.path.walk for unpack blk files with 'arg' mod
-    """
-    for name in names:
-        subname = os.path.join(dirname, name)
-        if os.path.isfile(subname) and os.path.splitext(subname)[1] == '.blk':
-            print subname
-            unpack_file(subname, arg)
+            decoded_data = blk.unpack(out_type)
+            f.write(decoded_data)
+        except WrongFiletypeError as e:
+            print('    ', e)
+        except TypeError as e:
+            print('    ', e)
 
 
 def unpack_dir(dirname, out_type):
     """
     Unpack all *.blk files in `dirname` with `out_type` format.
     """
-    os.path.walk(dirname, _unpack_dir, out_type)
+    for root, dirs, files in os.walk(dirname):
+        for filename in files:
+            subname = os.path.join(root, filename)
+            if os.path.isfile(subname) and os.path.splitext(subname)[1] == '.blk':
+                print(subname)
+                unpack_file(subname, out_type)
 
 
 def main():

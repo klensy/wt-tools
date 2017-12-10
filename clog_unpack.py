@@ -20,14 +20,14 @@ def main():
 
     try:
         parse_result = parser.parse_args()
-    except IOError, msg:
+    except IOError as msg:
         parser.error(str(msg))
         exit(1)
 
     data = bytearray(parse_result.in_file.read())
     parse_result.in_file.close()
     if len(data) == 0:
-        print "empty file"
+        print("empty file")
         exit(1)
 
     key_data = bytearray(parse_result.key_file.read())

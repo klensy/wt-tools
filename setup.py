@@ -2,7 +2,7 @@ from cx_Freeze import setup, Executable
 
 packages = ["construct", "zstd", "pylzma"]
 includes = []
-excludes = ["socket", "unittest"]
+excludes = ["socket", "unittest", "http", "email", "pydoc", "construct.examples"]
 includefiles = []
 
 blk_unpack = Executable(

@@ -1,5 +1,6 @@
-import struct, sys, pylzma, ctypes, zlib
+import struct, sys, ctypes, zlib
 import os.path
+import pylzma
 
 ddsx_types = ['DXT1', 'DXT5']
 dds_header = [
@@ -29,9 +30,9 @@ def unpack(data):
 
     :param data: ddsx data
     """
-    header_format = struct.unpack_from('4s', data, 0x4)[0]
+    header_format = struct.unpack_from('4s', data, 0x4)[0].decode("utf-8")
     if header_format not in ddsx_types:
-        print 'wrong ddsx type:', header_format
+        print('wrong ddsx type:', header_format)
         exit(1)
 
     dds_height = struct.unpack_from('H', data, 0xc)[0]
@@ -49,7 +50,7 @@ def unpack(data):
     struct.pack_into('I', dds_data, 0x10, dds_height)
     struct.pack_into('I', dds_data, 0x14, dds_unpacked_body_size)
     struct.pack_into('B', dds_data, 0x1c, dds_mipmapcount)
-    struct.pack_into('4s', dds_data, 0x54, header_format)
+    struct.pack_into('4s', dds_data, 0x54, header_format.encode('utf-8'))
 
     if dds_body_size == 0:  # not packed
         return dds_data.raw + data[0x20:]
@@ -64,35 +65,29 @@ def unpack_file(filename):
     with open(filename, 'rb') as f:
         data = f.read()
     if len(data) == 0:
-        print "empty file"
+        print("empty file")
         return
     out_file = unpack(data)
     with open(filename[:-1], 'wb') as f:
         f.write(out_file)
 
 
-def _unpack_dir(arg, dirname, names):
-    """
-    Func to os.path.walk for unpack files with 'arg' mod
-    """
-    for name in names:
-        subname = os.path.join(dirname, name)
-        if os.path.isfile(subname) and os.path.splitext(subname)[1] == '.ddsx':
-            print subname
-            unpack_file(subname)
-
-
 def unpack_dir(dirname):
     """
-    Unpack all files in `dirname`
+    Unpack all *.ddsx files in `dirname`
     """
-    os.path.walk(dirname, _unpack_dir, None)
+    for root, dirs, files in os.walk(dirname):
+        for filename in files:
+            subname = os.path.join(root, filename)
+            if os.path.isfile(subname) and os.path.splitext(subname)[1] == '.ddsx':
+                print(subname)
+                unpack_file(subname)
 
 
 def main():
     if len(sys.argv) != 2:
-        print 'usage: ddsx_unpack.py PATH\n' \
-              'where PATH - file or folder'
+        print('usage: ddsx_unpack.py PATH\n'
+              'where PATH - file or folder')
         sys.exit(1)
 
     filename = sys.argv[1]
