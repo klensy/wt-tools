@@ -1,9 +1,10 @@
 from cx_Freeze import setup, Executable
 
-packages = ["construct", "zstd", "pylzma"]
+packages = []
 includes = []
 excludes = ["socket", "unittest", "http", "email", "pydoc", "construct.examples"]
 includefiles = []
+zip_include_packages = ["collections", "construct", "ctypes", "encodings", "json", "logging", "importlib", "formats"]
 
 blk_unpack = Executable(
     script="blk_unpack.py",
@@ -31,10 +32,10 @@ wrpl_unpacker = Executable(
 
 setup(
     name="wt-tools",
-    version="0.2.1-dev",
+    version="0.2.1.1-dev",
     author='klensy',
     description="War Thunder resource extraction tools",
     options={"build_exe": {"includes": includes, "excludes": excludes, "include_files": includefiles,
-                           "packages": packages}},
+                           "packages": packages, "zip_include_packages": zip_include_packages}},
     executables=[blk_unpack, clog_unpack, ddsx_unpack, dxp_unpack, vromfs_unpacker, wrpl_unpacker]
 )

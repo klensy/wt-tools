@@ -1,5 +1,6 @@
 import zlib
-from construct import *
+
+from construct import Construct, Struct, Tell, Computed, Seek, this
 
 
 # used for unpacking zlib block and return in context

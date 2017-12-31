@@ -1,7 +1,8 @@
 import struct
-
 import zstd
-from construct import *
+
+from construct import Construct, Enum, Byte, this, Adapter, Struct, Seek, Int32ul, Array, CString, Tell, If, Bytes, \
+    Computed, Embedded, Switch, Error, Const, Int64ub, Int24ul, Hex
 
 from formats.common import zlib_stream
 
@@ -25,10 +26,10 @@ class ZstdContext(Construct):
         need_read_size = ctx._._.header.packed_size - (16 if ctx.first_part else 0) - (16 if ctx.second_part else 0)
         # ugly: align read size to 4 bytes
         need_read_size = need_read_size // 4 * 4
-        deobfs_compressed_data = (ctx.first_part if ctx.first_part else '') + \
+        deobfs_compressed_data = (ctx.first_part if ctx.first_part else b'') + \
                                  stream.getvalue()[ctx.middle_data_offset:ctx.middle_data_offset + need_read_size] + \
-                                 (ctx.second_part.data if ctx.second_part.data else '') + \
-                                 (ctx.align_tail if ctx.align_tail else '')
+                                 (ctx.second_part.data if ctx.second_part.data else b'') + \
+                                 (ctx.align_tail if ctx.align_tail else b'')
         dctx = zstd.ZstdDecompressor()
         decompressed_data = dctx.decompress(deobfs_compressed_data, max_output_size=ctx._._.header.original_size)
         ctx.parsed_data = vromfs_not_packed_body.parse(decompressed_data)
