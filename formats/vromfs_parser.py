@@ -1,5 +1,5 @@
 import struct
-import zstd
+import zstandard
 
 from construct import Construct, Enum, Byte, this, Adapter, Struct, Seek, Int32ul, Array, CString, Tell, If, Bytes, \
     Computed, Embedded, Switch, Error, Const, Int64ub, Int24ul, Hex
@@ -30,7 +30,7 @@ class ZstdContext(Construct):
                                  stream.getvalue()[ctx.middle_data_offset:ctx.middle_data_offset + need_read_size] + \
                                  (ctx.second_part.data if ctx.second_part.data else b'') + \
                                  (ctx.align_tail if ctx.align_tail else b'')
-        dctx = zstd.ZstdDecompressor()
+        dctx = zstandard.ZstdDecompressor()
         decompressed_data = dctx.decompress(deobfs_compressed_data, max_output_size=ctx._._.header.original_size)
         ctx.parsed_data = vromfs_not_packed_body.parse(decompressed_data)
 

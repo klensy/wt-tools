@@ -1,10 +1,10 @@
 # for parsing
-# currently not fixed parsing of Const
-construct==2.8.12
+# 2.8.22 breaks Const, need to update code
+construct==2.8.21
 
 # for unpacking
 # zstandard==0.8.1 --install-option="--legacy"
-git+https://github.com/indygreg/python-zstandard.git@0.8.1 --install-option="--legacy"
+git+https://github.com/indygreg/python-zstandard.git@0.9.1 --install-option="--legacy"
 pylzma==0.4.9
 
 # for building wt-tools
