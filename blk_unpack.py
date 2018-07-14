@@ -533,24 +533,31 @@ def unpack_dir(dirname, out_type: int):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Unpacks blk files to human readable version")
-    parser.add_argument('filename', help="unpack from, file or directory")
-    out_type_group = parser.add_mutually_exclusive_group()
-    out_type_group.add_argument('--json', action="store_true", help="output in formatted json")
-    out_type_group.add_argument('--json_min', action="store_true", help="output in minimal json")
-    out_type_group.add_argument('--strict_blk', action="store_true", help="output in ingame blk format")
+    parser = argparse.ArgumentParser(formatter_class=argparse.RawTextHelpFormatter,
+                                     description="Unpacks blk files to human readable version")
+
+    parser.add_argument('filename', help="unpack from: file or directory")
+    format_help = "Format variants:\n" \
+                  "json - for pretty formatted json (default)\n" \
+                  "json_min - for minified json\n" \
+                  "strict_blk - for ingame blk format"
+
+    parser.add_argument('--format', dest='format', action='store', choices=['json', 'json_min', 'strict_blk'],
+                        default='json', help=format_help)
+
     parse_result = parser.parse_args()
 
-    filename = parse_result.filename
-    if parse_result.json:
+    out_format = parse_result.format
+    if out_format == 'json':
         out_type = BLK.output_type['json']
-    elif parse_result.json_min:
+    elif out_format == 'json_min':
         out_type = BLK.output_type['json_min']
-    elif parse_result.strict_blk:
+    elif out_format == 'strict_blk':
         out_type = BLK.output_type['strict_blk']
     else:
         out_type = BLK.output_type['json']
 
+    filename = parse_result.filename
     if os.path.isfile(filename):
         unpack_file(filename, out_type)
     else:
