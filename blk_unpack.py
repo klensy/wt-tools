@@ -427,7 +427,15 @@ class BLK:
 
     def print_item(self, item_type: str, item_data, sub_units_names):
         if item_type == 'str':
-            return sub_units_names[item_data].decode("utf-8")
+            s = sub_units_names[item_data]
+            try:
+                return s.decode("utf-8")
+            except UnicodeDecodeError as e:  # russian win encoding
+                return s.decode("cp1251")
+            except Exception as e:
+                import sys
+                from traceback import print_exc
+                print_exc(file=sys.stdout)
         elif item_type == 'float':
             return float('%.4f' % item_data)
         elif item_type == 'bool':

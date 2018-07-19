@@ -33,7 +33,7 @@ wrpl_unpacker = Executable(
 
 setup(
     name="wt-tools",
-    version="0.2.1.2-dev",
+    version="0.2.1.3-dev",
     author='klensy',
     description="War Thunder resource extraction tools",
     options={"build_exe": {"includes": includes, "excludes": excludes, "include_files": includefiles,
