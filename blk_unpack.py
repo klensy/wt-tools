@@ -529,7 +529,12 @@ def unpack_dir(dirname, out_type: int):
             subname = os.path.join(root, filename)
             if os.path.isfile(subname) and os.path.splitext(subname)[1] == '.blk':
                 print(subname)
-                unpack_file(subname, out_type)
+                try:
+                    unpack_file(subname, out_type)
+                except Exception as e:
+                    import sys
+                    from traceback import print_exc
+                    print_exc(file=sys.stdout)
 
 
 def main():
