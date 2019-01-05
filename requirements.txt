@@ -3,9 +3,9 @@
 construct==2.8.21
 
 # for unpacking
-# zstandard==0.8.1 --install-option="--legacy"
-git+https://github.com/indygreg/python-zstandard.git@0.9.1 --install-option="--legacy"
-pylzma==0.4.9
+zstandard==0.10.2 --install-option="--legacy"
+# git+https://github.com/indygreg/python-zstandard.git@0.10.2 --install-option="--legacy"
+pylzma==0.5.0
 
 # for building wt-tools
 cx_Freeze==6.0b1
