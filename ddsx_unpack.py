@@ -3,6 +3,7 @@ import os.path
 import pylzma
 
 ddsx_types = ['DXT1', 'DXT5']
+zlib_types = [0x7801, 0x789c, 0x78da]
 dds_header = [
     0x44, 0x44, 0x53, 0x20, 0x7C, 0x00, 0x00, 0x00,
     0x07, 0x10, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00,
@@ -56,8 +57,11 @@ def unpack(data):
         return dds_data.raw + data[0x20:]
     elif struct.unpack_from('I', data, 0x20)[0] == 0x1000005d:  # packed with lzma
         return dds_data.raw + pylzma.decompress(data[0x20:], maxlength=dds_unpacked_body_size)
-    else:  # packed with zlib
+    elif struct.unpack_from('>H', data, 0x20)[0] in zlib_types:  # packed with zlib
         return dds_data.raw + zlib.decompress(data[0x20:])
+    else:
+        print("Unknown compression type")
+        return
 
 
 def unpack_file(filename):
