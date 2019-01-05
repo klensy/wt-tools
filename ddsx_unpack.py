@@ -26,14 +26,14 @@ dds_header = [
 def unpack(data):
     """
     Unpack data from ddsx and returns it. If data have wrong header, prints error
-    and exit(1). Return unpacked dds data, ready for saving.
+    and return None. Return unpacked dds data, ready for saving.
 
     :param data: ddsx data
     """
     header_format = struct.unpack_from('4s', data, 0x4)[0].decode("utf-8")
     if header_format not in ddsx_types:
         print('wrong ddsx type:', header_format)
-        exit(1)
+        return
 
     dds_height = struct.unpack_from('H', data, 0xc)[0]
     dds_width = struct.unpack_from('H', data, 0xe)[0]
@@ -68,8 +68,9 @@ def unpack_file(filename):
         print("empty file")
         return
     out_file = unpack(data)
-    with open(filename[:-1], 'wb') as f:
-        f.write(out_file)
+    if out_file:
+        with open(filename[:-1], 'wb') as f:
+            f.write(out_file)
 
 
 def unpack_dir(dirname):
