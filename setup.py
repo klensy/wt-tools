@@ -1,4 +1,5 @@
 from cx_Freeze import setup, Executable
+import sys
 
 packages = []
 includes = []
@@ -7,36 +8,39 @@ includefiles = []
 zip_include_packages = ["collections", "construct", "ctypes", "encodings", "json", "logging", "importlib", "formats",
                         "zstandard", "xml"]
 
+src_path = "src/wt_tools/"
+
 blk_unpack = Executable(
-    script="blk_unpack.py",
+    script=src_path + "blk_unpack.py",
 )
 
 clog_unpack = Executable(
-    script="clog_unpack.py",
+    script=src_path + "clog_unpack.py",
 )
 
 ddsx_unpack = Executable(
-    script="ddsx_unpack.py",
+    script=src_path + "ddsx_unpack.py",
 )
 
 dxp_unpack = Executable(
-    script="dxp_unpack.py",
+    script=src_path + "dxp_unpack.py",
 )
 
 vromfs_unpacker = Executable(
-    script="vromfs_unpacker.py",
+    script=src_path + "vromfs_unpacker.py",
 )
 
 wrpl_unpacker = Executable(
-    script="wrpl_unpacker.py",
+    script=src_path + "wrpl_unpacker.py",
 )
 
 setup(
-    name="wt-tools",
+    name="wt_tools",
     version="0.2.1.3-dev",
     author='klensy',
     description="War Thunder resource extraction tools",
     options={"build_exe": {"includes": includes, "excludes": excludes, "include_files": includefiles,
-                           "packages": packages, "zip_include_packages": zip_include_packages}},
+                           "packages": packages, "zip_include_packages": zip_include_packages,
+                           "path": sys.path + [src_path]}},
     executables=[blk_unpack, clog_unpack, ddsx_unpack, dxp_unpack, vromfs_unpacker, wrpl_unpacker]
 )

@@ -2,7 +2,7 @@ import struct
 
 from construct import Enum, Int16ul, Const, Struct, Int32ub, Int32ul, Bytes, this, Int24ul, Seek
 
-from formats.common import zlib_stream
+from .common import zlib_stream
 
 
 # there should be better way to build this, but i don't know it, for now

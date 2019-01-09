@@ -4,7 +4,7 @@ import zstandard
 from construct import Construct, Enum, Byte, this, Adapter, Struct, Seek, Int32ul, Array, CString, Tell, If, Bytes, \
     Computed, Embedded, Switch, Error, Const, Int64ub, Int24ul, Hex
 
-from formats.common import zlib_stream
+from .common import zlib_stream
 
 NOT_PACKED_ADDED_OFFSET = 0x10
 NOT_PACKED_FILE_DATA_TABLE_OFFSET = 0x20
