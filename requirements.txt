@@ -8,4 +8,6 @@ zstandard==0.10.2 --install-option="--legacy"
 pylzma==0.5.0
 
 # for building wt-tools
-cx_Freeze==6.0
+# cx_Freeze==6.0
+# fixed building with windows 10
+git+https://github.com/anthony-tuininga/cx_Freeze.git@f08ba084aee9
