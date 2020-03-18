@@ -3,7 +3,7 @@ import os.path
 import pylzma
 
 ddsx_types = ['DXT1', 'DXT5']
-zlib_types = [0x7801, 0x789c, 0x78da]
+
 dds_header = [
     0x44, 0x44, 0x53, 0x20, 0x7C, 0x00, 0x00, 0x00,
     0x07, 0x10, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00,
@@ -22,6 +22,8 @@ dds_header = [
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
     ]
+
+compression_type = {0x0: "not_packed", 0x40: "lzma", 0x60: "oodle", 0x80: "zlib"}
 
 
 def unpack(data):
@@ -44,6 +46,7 @@ def unpack(data):
     ddsx_unknown_flag_0 = struct.unpack_from('B', data, 0xa)
     if ddsx_unknown_flag_0 in [0, 1]:
         pass  # all unpack ok 11 c0 01 40, 11 40 01 40, 11 40 00 40
+    dds_compression_type = struct.unpack_from('B', data, 0xb)[0]
 
     dds_data = ctypes.create_string_buffer(0x80)
     struct.pack_into('128B', dds_data, 0, *dds_header)
@@ -53,14 +56,17 @@ def unpack(data):
     struct.pack_into('B', dds_data, 0x1c, dds_mipmapcount)
     struct.pack_into('4s', dds_data, 0x54, header_format.encode('utf-8'))
 
-    if dds_body_size == 0:  # not packed
+    dds_packed = compression_type.get(dds_compression_type, "")
+    if dds_packed == "not_packed":
         return dds_data.raw + data[0x20:]
-    elif struct.unpack_from('I', data, 0x20)[0] == 0x1000005d:  # packed with lzma
+    elif dds_packed == "lzma":
         return dds_data.raw + pylzma.decompress(data[0x20:], maxlength=dds_unpacked_body_size)
-    elif struct.unpack_from('>H', data, 0x20)[0] in zlib_types:  # packed with zlib
+    elif dds_packed == "zlib":
         return dds_data.raw + zlib.decompress(data[0x20:])
+    elif dds_packed == "oodle":
+        print("unsupported compression type: {}".format(dds_packed))
     else:
-        print("Unknown compression type")
+        print("Unknown compression type: {}".format(dds_compression_type))
         return
 
 
