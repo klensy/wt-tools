@@ -2,7 +2,7 @@ import struct
 import zstandard
 
 from construct import Construct, Enum, Byte, this, Adapter, Struct, Seek, Int32ul, Array, CString, Tell, If, Bytes, \
-    Computed, Embedded, Switch, Error, Const, Int64ub, Int24ul, Hex
+    Computed, Embedded, Switch, Error, Const, Int24ul, Hex, String
 
 from .common import zlib_stream
 
@@ -122,7 +122,8 @@ vromfs_zlib_packed_body = Struct(
 
 vromfs_header = Struct(
     # b"VRFs\x00\x00PC"
-    "magic" / Const(Int64ub, 0x5652467300005043),
+    "magic" / Const(String(4), b"VRFs"),
+    "platform" / Enum(String(4), pc=b"\x00\x00PC", ios=b"\x00iOS", andr=b"\x00and"),
     "original_size" / Int32ul,
     "packed_size" / Int24ul,
     "vromfs_type" / vromfs_type,

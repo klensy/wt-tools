@@ -9,7 +9,7 @@ from typing import Tuple, List, Iterable, Any, Dict
 
 type_list = {
     0x0: 'size', 0x1: 'str', 0x2: 'int', 0x3: 'float', 0x4: 'vec2f',
-    0x5: 'vec3f', 0x6: 'vec4f', 0x7: 'vec2i', 0x8: 'typex8', 0x9: 'bool',
+    0x5: 'vec3f', 0x6: 'vec4f', 0x7: 'vec2i', 0x8: 'vec3i', 0x9: 'bool',
     0xa: 'color', 0xb: 'm4x3f', 0xc: 'time', 0x10: 'typex7',
     0x89: 'typex'  # same as 'bool', but reversed
 }
@@ -17,7 +17,7 @@ type_list = {
 # ingame names for types
 type_list_strict_blk = {
     0x0: 'size', 0x1: 't', 0x2: 'i', 0x3: 'r', 0x4: 'p2',
-    0x5: 'p3', 0x6: 'p4', 0x7: 'ip2', 0x8: 'typex8', 0x9: 'b',
+    0x5: 'p3', 0x6: 'p4', 0x7: 'ip2', 0x8: 'ip3', 0x9: 'b',
     0xa: 'c', 0xb: 'm', 0xc: 'i64', 0x10: 'typex7',
     0x89: 'b'  # same as 'bool', but reversed
 }
@@ -421,7 +421,7 @@ class BLK:
             value, offset = struct.unpack_from('I', self.data, id_offset + 0x4)[0], 0x8
         elif block_type_from_list == 'typex7':  # what type?
             value, offset = struct.unpack_from('I', self.data, id_offset + 0x4)[0], 0x8
-        elif block_type_from_list == 'typex8':  # what type?
+        elif block_type_from_list == 'vec3i':  # what type?
             value, offset = struct.unpack_from('III', self.data, id_offset + 0x4), 0x10
         return value, offset
 
@@ -450,7 +450,7 @@ class BLK:
             return NoIndent([float("{:e}".format(i)) for i in item_data])
         elif item_type == 'time':
             return item_data[0]
-        elif item_type in ['vec2i', 'typex8']:
+        elif item_type in ['vec2i', 'vec3i']:
             return NoIndent(list(item_data))
         elif item_type == 'm4x3f':  # 'vec3f' in 'm4x3f'
             return [self.print_item('vec3f', item, sub_units_names) for item in item_data]
@@ -470,7 +470,7 @@ class BLK:
         elif item_type_from_list == 'bool' or item_type_from_list == 'typex':
             item_val = 'yes' if bool(item_data) else 'no'
             return ret + item_val
-        elif item_type_from_list in ['vec4f', 'vec3f', 'vec2f', 'vec2i', 'typex8']:
+        elif item_type_from_list in ['vec4f', 'vec3f', 'vec2f', 'vec2i', 'vec3i']:
             return ret + repr(item_data)[1:-1]
         elif item_type_from_list == 'm4x3f':
             return '{}{}'.format(ret, str(item_data).replace('],', ']'))
