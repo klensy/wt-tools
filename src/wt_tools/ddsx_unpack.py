@@ -2,6 +2,8 @@ import struct, sys, ctypes, zlib
 import os.path
 import pylzma
 
+from formats.ddsx_parser import ddsx
+
 ddsx_types = ['DXT1', 'DXT5']
 
 dds_header = [
@@ -33,34 +35,22 @@ def unpack(data):
 
     :param data: ddsx data
     """
-    header_format = struct.unpack_from('4s', data, 0x4)[0].decode("utf-8")
-    if header_format not in ddsx_types:
-        print('wrong ddsx type:', header_format)
-        return
-
-    dds_height = struct.unpack_from('H', data, 0xc)[0]
-    dds_width = struct.unpack_from('H', data, 0xe)[0]
-    dds_mipmapcount = struct.unpack_from('B', data, 0x10)[0]
-    dds_unpacked_body_size = struct.unpack_from('I', data, 0x18)[0]
-    dds_body_size = struct.unpack_from('I', data, 0x1c)[0]
-    ddsx_unknown_flag_0 = struct.unpack_from('B', data, 0xa)
-    if ddsx_unknown_flag_0 in [0, 1]:
-        pass  # all unpack ok 11 c0 01 40, 11 40 01 40, 11 40 00 40
+    parsed_data = ddsx.parse(data)
     dds_compression_type = struct.unpack_from('B', data, 0xb)[0]
 
     dds_data = ctypes.create_string_buffer(0x80)
     struct.pack_into('128B', dds_data, 0, *dds_header)
-    struct.pack_into('I', dds_data, 0xc, dds_width)
-    struct.pack_into('I', dds_data, 0x10, dds_height)
-    struct.pack_into('I', dds_data, 0x14, dds_unpacked_body_size)
-    struct.pack_into('B', dds_data, 0x1c, dds_mipmapcount)
-    struct.pack_into('4s', dds_data, 0x54, header_format.encode('utf-8'))
+    struct.pack_into('I', dds_data, 0xc, parsed_data.header.h)
+    struct.pack_into('I', dds_data, 0x10, parsed_data.header.w)
+    struct.pack_into('I', dds_data, 0x14, parsed_data.header.memSz)
+    struct.pack_into('B', dds_data, 0x1c, parsed_data.header.levels)
+    struct.pack_into('4s', dds_data, 0x54, parsed_data.header.d3dFormat)
 
     dds_packed = compression_type.get(dds_compression_type, "")
     if dds_packed == "not_packed":
         return dds_data.raw + data[0x20:]
     elif dds_packed == "lzma":
-        return dds_data.raw + pylzma.decompress(data[0x20:], maxlength=dds_unpacked_body_size)
+        return dds_data.raw + pylzma.decompress(data[0x20:], maxlength=parsed_data.header.memSz)
     elif dds_packed == "zlib":
         return dds_data.raw + zlib.decompress(data[0x20:])
     elif dds_packed == "oodle":

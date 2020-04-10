@@ -121,8 +121,7 @@ vromfs_zlib_packed_body = Struct(
 )
 
 vromfs_header = Struct(
-    # b"VRFs\x00\x00PC"
-    "magic" / Const(String(4), b"VRFs"),
+    "magic" / Const(b"VRFs", String(4)),
     "platform" / Enum(String(4), pc=b"\x00\x00PC", ios=b"\x00iOS", andr=b"\x00and"),
     "original_size" / Int32ul,
     "packed_size" / Int24ul,
