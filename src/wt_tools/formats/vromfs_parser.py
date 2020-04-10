@@ -2,7 +2,7 @@ import struct
 import zstandard
 
 from construct import Construct, Enum, Byte, this, Adapter, Struct, Seek, Int32ul, Array, CString, Tell, If, Bytes, \
-    Computed, Embedded, Switch, Error, Const, Int24ul, Hex, String
+    Computed, Embedded, Switch, Error, Int24ul, Hex, String, Int16ul, GreedyBytes
 
 from .common import zlib_stream
 
@@ -49,6 +49,19 @@ class Obfs32Adapter(Adapter):
     def _decode(self, obj, context):
         return struct.pack("<4L", *[x ^ y for (x, y) in zip(obj, [0x12481248, 0xAA55AA55, 0xF00FF00F, 0xAA55AA55])])
 
+
+'''
+struct VirtualRomFsExtHdr {
+    ushort size;
+    ushort flags;
+    uint version;
+};
+'''
+vromfs_ext_header = Struct(
+    "size" / Int16ul,
+    "flags" / Int16ul,
+    "version" / Int32ul
+)
 
 filename_table = Struct(
     # move to start of filename table
@@ -121,14 +134,14 @@ vromfs_zlib_packed_body = Struct(
 )
 
 vromfs_header = Struct(
-    "magic" / Const(b"VRFs", String(4)),
+    "magic" / Enum(String(4), vrfs=b"VRFs", vrfx=b"VRFx"),
     "platform" / Enum(String(4), pc=b"\x00\x00PC", ios=b"\x00iOS", andr=b"\x00and"),
     "original_size" / Int32ul,
     "packed_size" / Int24ul,
     "vromfs_type" / vromfs_type,
     "vromfs_packed_type" / Computed(lambda ctx: "zstd_packed" if ctx.vromfs_type == "zstd_packed" else
-        ("not_packed" if ctx.vromfs_type == "maybe_packed" and ctx.packed_size == 0 else
-        ("zlib_packed" if ctx.vromfs_type == "maybe_packed" and ctx.packed_size > 0 else "hoo")))
+    ("not_packed" if ctx.vromfs_type == "maybe_packed" and ctx.packed_size == 0 else
+     ("zlib_packed" if ctx.vromfs_type == "maybe_packed" and ctx.packed_size > 0 else "hoo")))
 )
 
 vromfs_body = Struct(
@@ -141,6 +154,10 @@ vromfs_body = Struct(
 
 vromfs_file = Struct(
     "header" / vromfs_header,
+    "ext_header" / If(
+        this.header.magic == "vrfx",
+        vromfs_ext_header),
     "body" / vromfs_body,
-    "tail" / Bytes(272)
+    # "tail" / Bytes(272)
+    "tail" / GreedyBytes
 )
