@@ -23,9 +23,16 @@ dds_header = [
     0x00, 0x00, 0x00, 0x00, 0x00, 0x10, 0x00, 0x00,
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
-    ]
+]
 
 compression_type = {0x0: "not_packed", 0x40: "lzma", 0x60: "oodle", 0x80: "zlib"}
+
+dll_name = 'oo2core_6_win64.dll'
+oodle_dll = None
+if not os.path.exists(dll_name):
+    print("Can't unpack oodle compressed textures, until {} not placed to wt-tools directory".format(dll_name))
+else:
+    oodle_dll = ctypes.cdll.LoadLibrary('oo2core_6_win64.dll')
 
 
 def unpack(data):
@@ -54,7 +61,21 @@ def unpack(data):
     elif dds_packed == "zlib":
         return dds_data.raw + zlib.decompress(data[0x20:])
     elif dds_packed == "oodle":
-        print("unsupported compression type: {}".format(dds_packed))
+        '''
+        private static extern long OodleLZ_Decompress(byte[] buffer, long bufferSize, byte[] result,
+            long outputBufferSize, int a, int b, int c, long d, long e,
+            long f, long g, long h, long i, int ThreadModule);
+        '''
+        if oodle_dll:
+            decompressed_data = ctypes.create_string_buffer(parsed_data.header.memSz)
+            res = oodle_dll.OodleLZ_Decompress(data[0x20:], parsed_data.header.packedSz, decompressed_data,
+                                               parsed_data.header.memSz, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3)
+            if res == 0:
+                print("Error unpacking oodle compressed texture")
+                return
+            return dds_data.raw + decompressed_data.raw
+        else:
+            print("unsupported compression type: {}".format(dds_packed))
     else:
         print("Unknown compression type: {}".format(dds_compression_type))
         return
