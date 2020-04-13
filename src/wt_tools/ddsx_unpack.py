@@ -4,7 +4,7 @@ import pylzma
 
 from formats.ddsx_parser import ddsx
 
-ddsx_types = ['DXT1', 'DXT5']
+ddsx_types = [b'DXT1', b'DXT5']
 
 dds_header = [
     0x44, 0x44, 0x53, 0x20, 0x7C, 0x00, 0x00, 0x00,
@@ -43,6 +43,11 @@ def unpack(data):
     :param data: ddsx data
     """
     parsed_data = ddsx.parse(data)
+    texture_format = parsed_data.header.d3dFormat
+    if texture_format not in ddsx_types:
+        print("Texture format {} unsupported yet".format(texture_format))
+        return
+
     dds_compression_type = struct.unpack_from('B', data, 0xb)[0]
 
     dds_data = ctypes.create_string_buffer(0x80)
@@ -102,7 +107,7 @@ def unpack_dir(dirname):
         for filename in files:
             subname = os.path.join(root, filename)
             if os.path.isfile(subname) and os.path.splitext(subname)[1] == '.ddsx':
-                print(subname)
+                print("\n" + subname)
                 unpack_file(subname)
 
 
