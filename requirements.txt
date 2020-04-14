@@ -10,3 +10,6 @@ pylzma==0.5.0
 # cx_Freeze==6.0
 # fixed building with windows 10
 git+https://github.com/anthony-tuininga/cx_Freeze.git@f08ba084aee9
+
+# for blk minimizing
+lark-parser==0.8.5

@@ -1,14 +1,14 @@
 from cx_Freeze import setup, Executable
 import sys
 
+src_path = "src/wt_tools/"
 packages = []
 includes = []
 excludes = ["socket", "unittest", "http", "email", "pydoc", "construct.examples"]
-includefiles = []
+includefiles = [src_path + "/blk.lark"]
 zip_include_packages = ["collections", "construct", "ctypes", "encodings", "json", "logging", "importlib", "formats",
                         "zstandard", "xml"]
 
-src_path = "src/wt_tools/"
 
 blk_unpack = Executable(
     script=src_path + "blk_unpack.py",
@@ -34,6 +34,10 @@ wrpl_unpacker = Executable(
     script=src_path + "wrpl_unpacker.py",
 )
 
+blk_minify = Executable(
+    script=src_path + "blk_minify.py",
+)
+
 setup(
     name="wt_tools",
     version="0.2.1.3-dev",
@@ -42,5 +46,5 @@ setup(
     options={"build_exe": {"includes": includes, "excludes": excludes, "include_files": includefiles,
                            "packages": packages, "zip_include_packages": zip_include_packages,
                            "path": sys.path + [src_path]}},
-    executables=[blk_unpack, clog_unpack, ddsx_unpack, dxp_unpack, vromfs_unpacker, wrpl_unpacker]
+    executables=[blk_unpack, clog_unpack, ddsx_unpack, dxp_unpack, vromfs_unpacker, wrpl_unpacker, blk_minify]
 )
