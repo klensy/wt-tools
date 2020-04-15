@@ -6,15 +6,15 @@ named_object: var_name l_brace NEWLINE* [value (expr_end value)* ] r_brace NEWLI
 
 key_type_value: var_name t_colon var_type t_equal var_value //expr_end
 
-// allow start from digit?
-var_name: /[a-zA-Z0-9_\-][a-zA-Z0-9_\-]*/
+// encountered object names like this, should it work? (' ','/','+','[',']','-','&'): unit respawn{
+var_name: /[a-zA-Z0-9_\-][a-zA-Z0-9_\-\.]*/
       | "\"" /[a-zA-Z0-9_\-][a-zA-Z0-9_\- \!\?\.]*/ "\""
    // | "\"" [ESCAPED_STRING (" " ESCAPED_STRING)*] "\""
 
 var_type: "t" | "i" | "r" | "p2" | "p3" | "p4" | "ip2" | "ip3" | "b" | "c" | "m" | "i64"
 
-var_value: /\"[\w\/\.\_\;\-\ \(\)\!\,\?\[\]]*\"/
-         | /\'[\w\/\.\_\;\-\ \(\)\"\!\,\?\[\]]*\'/
+var_value: /\"[\'\w\/\.\_\;\-\+\*\=\ \(\)\!\,\?\[\]\@\#\:\\\&\%]*\"/
+         | /\'[\"\w\/\.\_\;\-\+\*\=\ \(\)\!\,\?\[\]\@\#\:\\\&\%]*\'/
     | numbers_list
     | "yes"
     | "no"
