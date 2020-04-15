@@ -1,6 +1,8 @@
 import argparse
 from lark import Lark, Transformer, tree, lexer
 
+strip_empty_objects = False
+
 
 class BLKTransformer(Transformer):
     def var_value(self, s):
@@ -62,13 +64,21 @@ class BLKTransformer(Transformer):
         return ''.join(res)
 
     def named_object(self, s):
+        # better remove node, than transform it?
         res = []
         for t in s:
             if type(t) == lexer.Token and t.type == 'NEWLINE':
                 pass
             else:
                 res.append(t)
-        return ''.join(res)
+        if strip_empty_objects:
+            # there smth in object, except it's name plus braces
+            if len(res) > 3:
+                return ''.join(res)
+            else:
+                return ''
+        else:
+            return ''.join(res)
 
     def l_brace(self, s):
         return "{"
@@ -87,10 +97,16 @@ def main():
     parser = argparse.ArgumentParser(description="minify blk")
     parser.add_argument('filename', help="blk file")
     parser.add_argument("out_filename", help="output file")
+    # removes not all empty objects, really
+    parser.add_argument('--strip_empty_objects', dest='strip_empty_objects', action="store_true",
+                        default=False, help="remove empty objects")
     parse_result = parser.parse_args()
 
     filename = parse_result.filename
     out_filename = parse_result.out_filename
+    if parse_result.strip_empty_objects:
+        global strip_empty_objects
+        strip_empty_objects = True
 
     with open(filename, mode='r', encoding="utf8") as f:
         data = f.read()
@@ -101,6 +117,9 @@ def main():
     parsed_data = blk_parser.parse(data)
     with open(out_filename, 'w', encoding="utf8") as f:
         f.write(parsed_data)
+    print("minified {} from {} to {}, with rate {:.2}".format(filename,
+                                                              len(data), len(parsed_data),
+                                                              len(parsed_data) / len(data)))
 
 
 if __name__ == '__main__':
