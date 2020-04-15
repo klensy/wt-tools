@@ -1,7 +1,7 @@
 import argparse
 
 
-def xxor(data, key):
+def xxor(data, key: list):
     d_data = bytearray(len(data))
     key_length = len(key)
     for i, c in enumerate(data):
@@ -14,7 +14,7 @@ def main():
     parser.add_argument('-i', dest='in_file', required=True,
                         type=argparse.FileType('rb'), help="*.clog file")
     parser.add_argument('-k', dest='key_file', required=True,
-                        type=argparse.FileType('rb'), help="file with decryption key")
+                        type=argparse.FileType('r'), help="file with decryption key")
     parser.add_argument('-o', dest='out_file', required=True,
                         type=argparse.FileType('wb'), help="output file")
 
@@ -30,8 +30,9 @@ def main():
         print("empty file")
         exit(1)
 
-    key_data = bytearray(parse_result.key_file.read())
+    key_data = parse_result.key_file.read().strip().split()
     parse_result.key_file.close()
+    key_data = [int(i, 16) for i in key_data]
 
     with parse_result.out_file as f:
         f.write(xxor(data, key_data))
