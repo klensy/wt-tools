@@ -1,7 +1,10 @@
 import argparse
 from lark import Lark, Transformer, tree, lexer
 
-strip_empty_objects = False
+strip_options = {
+    'strip_empty_objects': False,
+    'strip_comment_objects': False
+}
 
 
 class BLKTransformer(Transformer):
@@ -66,6 +69,9 @@ class BLKTransformer(Transformer):
     def named_object(self, s):
         # better remove node, than transform it?
         res = []
+        if strip_options['strip_comment_objects']:
+            if s[0] == 'comment':
+                return ''
         for t in s:
             # skip newline token
             if type(t) == lexer.Token and t.type == 'NEWLINE':
@@ -75,7 +81,7 @@ class BLKTransformer(Transformer):
                 pass
             else:
                 res.append(t)
-        if strip_empty_objects:
+        if strip_options['strip_empty_objects']:
             # there smth in object, except it's name plus braces
             if len(res) > 3:
                 return ''.join(res)
@@ -104,13 +110,25 @@ def main():
     # removes not all empty objects, really
     parser.add_argument('--strip_empty_objects', dest='strip_empty_objects', action="store_true",
                         default=False, help="remove empty objects")
+    # only comment objects, inlined one, like `comments:t=""` not removed
+    parser.add_argument('--strip_comment_objects', dest='strip_comment_objects', action="store_true",
+                        default=False, help="remove comment objects")
+    parser.add_argument('--strip_all', dest='strip_all', action="store_true",
+                        default=False, help="select all options")
     parse_result = parser.parse_args()
 
     filename = parse_result.filename
     out_filename = parse_result.out_filename
+
+    if parse_result.strip_all:
+        for option in strip_options:
+            strip_options[option] = True
+
     if parse_result.strip_empty_objects:
-        global strip_empty_objects
-        strip_empty_objects = True
+        strip_options['strip_empty_objects'] = True
+
+    if parse_result.strip_comment_objects:
+        strip_options['strip_comment_objects'] = True
 
     with open(filename, mode='r', encoding="utf8") as f:
         data = f.read()
