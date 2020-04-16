@@ -67,7 +67,11 @@ class BLKTransformer(Transformer):
         # better remove node, than transform it?
         res = []
         for t in s:
+            # skip newline token
             if type(t) == lexer.Token and t.type == 'NEWLINE':
+                pass
+            # and empty string, from collapsed objects
+            elif t == '':
                 pass
             else:
                 res.append(t)
