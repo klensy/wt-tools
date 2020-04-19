@@ -1,9 +1,11 @@
+import os.path
 import argparse
 from lark import Lark, Transformer, tree, lexer
 
 strip_options = {
     'strip_empty_objects': False,
-    'strip_comment_objects': False
+    'strip_comment_objects': False,
+    'strip_disabled_objects': False
 }
 
 
@@ -72,6 +74,10 @@ class BLKTransformer(Transformer):
         if strip_options['strip_comment_objects']:
             if s[0] == 'comment':
                 return ''
+        # disabled objects starts with __ in mission editor:  __unitRespawn{
+        if strip_options['strip_disabled_objects']:
+            if s[0].startswith('__'):
+                return ''
         for t in s:
             # skip newline token
             if type(t) == lexer.Token and t.type == 'NEWLINE':
@@ -113,6 +119,8 @@ def main():
     # only comment objects, inlined one, like `comments:t=""` not removed
     parser.add_argument('--strip_comment_objects', dest='strip_comment_objects', action="store_true",
                         default=False, help="remove comment objects")
+    parser.add_argument('--strip_disabled_objects', dest='strip_disabled_objects', action="store_true",
+                        default=False, help="remove disabled objects")
     parser.add_argument('--strip_all', dest='strip_all', action="store_true",
                         default=False, help="select all options")
     parse_result = parser.parse_args()
@@ -130,6 +138,11 @@ def main():
     if parse_result.strip_comment_objects:
         strip_options['strip_comment_objects'] = True
 
+    if parse_result.strip_disabled_objects:
+        strip_options['strip_disabled_objects'] = True
+
+    # get size, as we get it wrong from text opened file
+    parsed_file_size = os.path.getsize(filename)
     with open(filename, mode='r', encoding="utf8") as f:
         data = f.read()
 
@@ -140,8 +153,8 @@ def main():
     with open(out_filename, 'w', encoding="utf8") as f:
         f.write(parsed_data)
     print("minified {} from {} to {}, with rate {:.2}".format(filename,
-                                                              len(data), len(parsed_data),
-                                                              len(parsed_data) / len(data)))
+                                                              parsed_file_size, len(parsed_data),
+                                                              len(parsed_data) / parsed_file_size))
 
 
 if __name__ == '__main__':
