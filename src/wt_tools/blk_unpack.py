@@ -1,10 +1,10 @@
-import struct
-import json
-from collections import OrderedDict
-import uuid
 import argparse
+import json
 import os.path
-
+import struct
+import uuid
+import zlib
+from collections import OrderedDict
 from typing import Tuple, List, Iterable, Any, Dict
 
 type_list = {
@@ -68,7 +68,8 @@ class BLK:
     num_of_units_in_file_offset = 0xc
     num_of_units_in_file_v3_offset = 0xe
     units_length_type_v3_offset = 0xd
-    bbf_magic = '\x00BBF'
+    bbf_magic = b'\x00BBF'
+    bbz_magic = b'\x00BBz'
     output_type = {'json': 0x0, 'json_min': 0x1, 'strict_blk': 0x2}
 
     def __init__(self, data):
@@ -80,8 +81,16 @@ class BLK:
     def unpack(self, out_type=output_type['json']) -> str:
         # check file header and version
         # TODO: error handle
-        if struct.unpack_from('4s', self.data, 0)[0].decode("utf-8") != BLK.bbf_magic:
+        magic = struct.unpack_from('4s', self.data, 0)[0]
+        if magic not in [BLK.bbf_magic, BLK.bbz_magic]:
             raise WrongFiletypeError("Wrong filetype")
+
+        if magic == BLK.bbz_magic:
+            unpacked_size = struct.unpack_from('I', self.data, 4)[0]
+            packed_size = struct.unpack_from('I', self.data, 8)[0]
+
+            # here we lost 256 bytes at end, but we cant do anything with it now
+            self.data = zlib.decompress(self.data[0xc:0xc + packed_size], bufsize=unpacked_size)
 
         self.blk_version = struct.unpack_from('H', self.data, 0x4)[0]
         if self.blk_version == 2:  # 1.45
