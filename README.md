@@ -1,35 +1,82 @@
 ## War Thunder resource extraction tools
 
-Python scripts, that help you extract resources from game: fonts, textures, FM/DM of tanks and planes, parameters of cannons and machine guns, and other interesting stuff.
+Tools that help you extract resources from game: fonts, textures, FM/DM of tanks/planes/ships, parameters of weapons, and other interesting stuff.
 
+It also should should work for Cuisine Royale and Enlisted games.
+
+All new features in [dev](https://github.com/klensy/wt-tools/tree/dev) branch, master updated not so frequently.
 ## Installation
-1. Download latest 3.6.* python from [here](https://www.python.org/downloads/), install it.
-2. Add python path to env variables, see [description](https://docs.python.org/3/using/windows.html#excursus-setting-environment-variables), (optional).
+#### Hard way
+1. Download latest 3.7.* python x86_64 version from [here](https://www.python.org/downloads/).
+2. Run installer, check box with "Add Python 3.7 to PATH".
 3. Download scripts ("Download ZIP" button), extract somewhere.
 4. Run scripts from console, as described lower.
 
-### Or
+#### Easy way
 
-Download compiled files (exe files, compressed in wt-tools.rar) from [here](https://github.com/klensy/wt-tools/releases), **no python** required.  
-Command-line using the same as for python scripts, except you should write `vromfs_unpacker some_file.vromfs.bin`, not `python vromfs_unpacker.py some_file.vromfs.bin` (for other scripts too).
+1. Download compiled files (exe files, compressed in archive) from [here](https://github.com/klensy/wt-tools/releases), **no python** required.
+2. Unzip arhive.  
 
 ## Usage
 
-    python vromfs_unpacker.py somefile.vromfs.bin
-Files will be extracted to `somefile.vromfs.bin_u` folder.
+#### vromfs_unpacker
+Tool for unpacking game archives, this archives can contain any type of data:
 
-    python dxp_unpack.py somefile.dxp.bin
-Files will be extracted to `somefile.dxp.bin_u` folder, *.ddsx files inside.
+    vromfs_unpacker.exe somefile.vromfs.bin
+This will unpack files from `somefile.vromfs.bin` to `somefile.vromfs.bin_u` folder
 
-    python ddsx_unpack.py somefile.ddsx
-File will be extracted to `somefile.dds`, not *all* files will work correct.
+#### dxp_unpack
+Tool for unpacking texture archives:
 
-    python blk_unpack.py somefile.blk
-File will be extracted to `somefile.blkx`, this type of file contains settings.
+    dxp_unpack.exe somefile.dxp.bin
+This will unpack textures files from `somefile.dxp.bin` to `somefile.dxp.bin_u` folder,
+but textures need to be unpacked with ddsx_unpack.
 
-### Or if you use *.exe file scripts
+#### ddsx_unpack
+Tool for unpacking textures, can be used to unpack single file or folder:
 
-Just drag'n'drop wt files onto exe script files.
+    ddsx_unpack.exe somefile.ddsx
+This will unpack texture from `somefile.ddsx` to `somefile.dds`.
+
+    ddsx_unpack.exe some_folder
+This will unpack textures from folder `some_folder` to `some_folder`, unpacked textures will be inside with `*.dds` extension.
+
+#### blk_unpack
+Tool for unpacking blk files, that contain some text data
+
+    blk_unpack.exe somefile.blk
+This will unpack file from `somefile.blk` to `somefile.blkx`, data will be presented as json.
+If you want to get ingame format, you can use this:
+
+     blk_unpack.exe --format=strict_blk somefile.blk
+This will unpack blk file to `somefile.blkx` in format, that can be used by game.
+If you want unpack multiple files, pass folder name instead file name:
+
+    blk_unpack.exe folder_name
+This will unpack all blk filed in this folder into blkx files.
+
+#### clog_unpack
+Tool for 'decrypting' `*.clog` log files:
+
+    clog_unpack.exe -i some_log.clog -k keyfile.bin -o out_log.log
+This will decrypt `some_log.clog` with key `keyfile.bin` to `out_log.log` file.
+
+#### blk_minify
+Tool for minimizing blk files, good for modders, who want to create mission, but stuck at 512kb file size limit.
+It will decrease size to ~ 70% from initial.
+For basic usage:
+
+    blk_minify.exe some_mission.blk some_mission_minified.blk
+This will minify file from `some_mission.blk` to `some_mission_minified.blk`, without removing any structures from file.
+If you want lower size file, you can try additional options:
+* `--strip_empty_objects`: will remove empty objects
+* `--strip_comment_objects`: will remove comment objects
+* `--strip_disabled_objects`: remove disabled objects: the ones, which names start with __
+* `--strip_all`: select all options
+
+For example, for minimum size:
+
+    blk_minify.exe --strip_all some_mission.blk some_mission_minified.blk
 
 
 ##  Would you like to know more?
