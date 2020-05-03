@@ -1,6 +1,7 @@
 import struct, sys, ctypes, zlib
 import os.path
 import pylzma
+import zstandard
 
 from formats.ddsx_parser import ddsx
 
@@ -25,7 +26,7 @@ dds_header = [
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
 ]
 
-compression_type = {0x0: "not_packed", 0x40: "lzma", 0x60: "oodle", 0x80: "zlib"}
+compression_type = {0x0: "not_packed", 0x20: "zstd", 0x40: "lzma", 0x60: "oodle", 0x80: "zlib"}
 
 dll_name = 'oo2core_6_win64.dll'
 oodle_dll = None
@@ -81,6 +82,13 @@ def unpack(data):
             return dds_data.raw + decompressed_data.raw
         else:
             print("unsupported compression type: {}".format(dds_packed))
+    elif dds_packed == "zstd":
+        dctx = zstandard.ZstdDecompressor()
+        d_data = dctx.decompress(data[0x20:], max_output_size=parsed_data.header.memSz)
+        if d_data == 0:
+            print("Error unpacking zstd compressed texture")
+            return
+        return dds_data.raw + d_data
     else:
         print("Unknown compression type: {}".format(dds_compression_type))
         return
