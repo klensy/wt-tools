@@ -4,7 +4,7 @@ import sys
 src_path = "src/wt_tools/"
 packages = []
 includes = []
-excludes = ["socket", "unittest", "http", "email", "pydoc", "construct.examples"]
+excludes = ["socket", "unittest", "http", "email", "pydoc", "construct.examples", "bz2"]
 includefiles = [src_path + "/blk.lark"]
 zip_include_packages = ["collections", "construct", "ctypes", "encodings", "json", "logging", "importlib", "formats",
                         "zstandard", "xml"]
@@ -40,7 +40,7 @@ blk_minify = Executable(
 
 setup(
     name="wt_tools",
-    version="0.2.1.3-dev",
+    version="0.2.2.4-dev",
     author='klensy',
     description="War Thunder resource extraction tools",
     options={"build_exe": {"includes": includes, "excludes": excludes, "include_files": includefiles,

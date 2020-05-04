@@ -2,7 +2,7 @@ import struct
 import zstandard
 
 from construct import Construct, Enum, Byte, this, Adapter, Struct, Seek, Int32ul, Array, CString, Tell, If, Bytes, \
-    Computed, Embedded, Switch, Error, Int24ul, Hex, String, Int16ul, GreedyBytes
+    Computed, Embedded, Switch, Error, Int24ul, Hex, String, Int16ul, GreedyBytes, StringsAsBytes
 
 from .common import zlib_stream
 
@@ -70,7 +70,7 @@ filename_table = Struct(
     # but we cheat, just read total_files * cstrings
     "first_filename_offset" / Int32ul,
     Seek(this._.data_start_offset + this.first_filename_offset),
-    "filenames" / Array(this._.files_count, CString())
+    "filenames" / Array(this._.files_count, CString(encoding="utf8"))
 )
 
 file_data_record = Struct(
@@ -134,8 +134,8 @@ vromfs_zlib_packed_body = Struct(
 )
 
 vromfs_header = Struct(
-    "magic" / Enum(String(4), vrfs=b"VRFs", vrfx=b"VRFx"),
-    "platform" / Enum(String(4), pc=b"\x00\x00PC", ios=b"\x00iOS", andr=b"\x00and"),
+    "magic" / Enum(String(4, encoding=StringsAsBytes), vrfs=b"VRFs", vrfx=b"VRFx"),
+    "platform" / Enum(String(4, encoding=StringsAsBytes), pc=b"\x00\x00PC", ios=b"\x00iOS", andr=b"\x00and"),
     "original_size" / Int32ul,
     "packed_size" / Int24ul,
     "vromfs_type" / vromfs_type,

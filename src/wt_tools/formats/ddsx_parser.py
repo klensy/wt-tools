@@ -1,5 +1,5 @@
 from construct import Struct, Int32ul, Int16ul, Int8ul, Nibble, Const, FlagsEnum, EmbeddedBitStruct,\
-    IfThenElse, this, Bytes, String
+    IfThenElse, this, Bytes, String, StringsAsBytes
 
 
 '''
@@ -73,7 +73,7 @@ struct Header {
 '''
 ddsx_header = Struct(
     "label" / Const(b"DDSx"),
-    "d3dFormat" / String(4),
+    "d3dFormat" / String(4, encoding=StringsAsBytes),
     # there error in parsing flags, fixed somewhere on future of construct, but not on 2.9.24
     "flags" / ddsx_flags_enum,
     "w" / Int16ul,
