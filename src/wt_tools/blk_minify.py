@@ -22,23 +22,11 @@ class BLKTransformer(Transformer):
             pass
         return ''.join([value for value in s])
 
-    def var_type(self, s):
-        return s[0].value
-
-    def t_equal(self, s):
-        return s[0].value
-
-    def t_colon(self, s):
-        return s[0].value
-
     def expr_end(self, s):
         return ";"
 
-    def r_sqb(self, s):
-        return "]"
-
-    def l_sqb(self, s):
-        return "["
+    def expr_end_optional(self, s):
+        return ""
 
     def value_array_el(self, s):
         res = []
@@ -96,23 +84,23 @@ class BLKTransformer(Transformer):
         else:
             return ''.join(res)
 
-    def l_brace(self, s):
-        return "{"
-
-    def r_brace(self, s):
-        return "}"
-
     def numbers_list(self, s):
         return ''.join(s)
 
-    def value(self, s):
+    def values(self, s):
+        return ''.join(s)
+
+    def r_include(self, s):
+        return ' '.join(s)
+
+    def values_in_named_object(self, s):
         return ''.join(s)
 
 
 def main():
     parser = argparse.ArgumentParser(description="minify blk")
     parser.add_argument('filename', help="blk file")
-    parser.add_argument("out_filename", help="output file")
+    parser.add_argument("-O", dest='out_filename', default=False, nargs='?', help="output file")
     # removes not all empty objects, really
     parser.add_argument('--strip_empty_objects', dest='strip_empty_objects', action="store_true",
                         default=False, help="remove empty objects")
@@ -126,7 +114,13 @@ def main():
     parse_result = parser.parse_args()
 
     filename = parse_result.filename
-    out_filename = parse_result.out_filename
+
+    out_filename = ''
+    if parse_result.out_filename:
+        out_filename = parse_result.out_filename
+    else:
+        f_path, f_ext = os.path.splitext(filename)
+        out_filename = f_path + '.min' + f_ext
 
     if parse_result.strip_all:
         for option in strip_options:
