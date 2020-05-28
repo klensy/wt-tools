@@ -1,100 +1,14 @@
 import os.path
 import argparse
-from lark import Lark, Transformer, tree, lexer
+from lark import Lark
+
+from formats.common import blk_transformer
 
 strip_options = {
     'strip_empty_objects': False,
     'strip_comment_objects': False,
     'strip_disabled_objects': False
 }
-
-
-class BLKTransformer(Transformer):
-    def var_value(self, s):
-        if type(s[0]) == str:
-            return s[0]
-        elif type(s[0]) == tree.Tree:
-            return ''.join(s[0].children)
-        return s
-
-    def var_name(self, s):
-        if type(s) == list:
-            pass
-        return ''.join([value for value in s])
-
-    def expr_end(self, s):
-        return ";"
-
-    def expr_end_optional(self, s):
-        return ""
-
-    def value_array_el(self, s):
-        res = []
-        for t in s:
-            if type(t) == list:
-                res.append(''.join(t))
-            else:
-                res.append(t)
-        return ''.join(res)
-
-    def value_array(self, s):
-        res = []
-        for t in s:
-            if type(t) == tree.Tree:
-                print("error in value_array?")
-                exit(1)
-            else:
-                res.append(t)
-        return ''.join(res)
-
-    def key_type_value(self, s):
-        res = []
-        for t in s:
-            if type(t) == list:
-                res.append(t[0])
-            else:
-                res.append(t)
-        return ''.join(res)
-
-    def named_object(self, s):
-        # better remove node, than transform it?
-        res = []
-        if strip_options['strip_comment_objects']:
-            if s[0] == 'comment':
-                return ''
-        # disabled objects starts with __ in mission editor:  __unitRespawn{
-        if strip_options['strip_disabled_objects']:
-            if s[0].startswith('__'):
-                return ''
-        for t in s:
-            # skip newline token
-            if type(t) == lexer.Token and t.type == 'NEWLINE':
-                pass
-            # and empty string, from collapsed objects
-            elif t == '':
-                pass
-            else:
-                res.append(t)
-        if strip_options['strip_empty_objects']:
-            # there smth in object, except it's name plus braces
-            if len(res) > 3:
-                return ''.join(res)
-            else:
-                return ''
-        else:
-            return ''.join(res)
-
-    def numbers_list(self, s):
-        return ''.join(s)
-
-    def values(self, s):
-        return ''.join(s)
-
-    def r_include(self, s):
-        return ' '.join(s)
-
-    def values_in_named_object(self, s):
-        return ''.join(s)
 
 
 def main():
@@ -135,13 +49,20 @@ def main():
     if parse_result.strip_disabled_objects:
         strip_options['strip_disabled_objects'] = True
 
+    if not os.path.exists(filename):
+        print("File", filename, "not exist")
+        return
     # get size, as we get it wrong from text opened file
     parsed_file_size = os.path.getsize(filename)
+    if parsed_file_size == 0:
+        with open(out_filename, 'wb') as f:
+            pass
+        return
     with open(filename, mode='r', encoding="utf8") as f:
         data = f.read()
 
     blk_parser = Lark(open('blk.lark').read(), parser='lalr',
-                      transformer=BLKTransformer(), keep_all_tokens=True)
+                      transformer=blk_transformer(strip_options), keep_all_tokens=True)
 
     parsed_data = blk_parser.parse(data)
     with open(out_filename, 'w', encoding="utf8") as f:

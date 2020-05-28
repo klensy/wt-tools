@@ -2,7 +2,7 @@
 
 values: key_type_value (expr_end values)* expr_end_optional
     | named_object (expr_end_optional values)* expr_end_optional
-    | r_include (expr_end values)* expr_end_optional
+//    | r_include (expr_end values)* expr_end_optional
 
 values_in_named_object: key_type_value expr_end (values_in_named_object)*
     | named_object expr_end_optional (values_in_named_object)*
@@ -11,7 +11,7 @@ named_object: var_name T_LBRACE NEWLINE* values_in_named_object? T_RBRACE
 
 key_type_value: var_name T_COLON T_VAR_TYPE T_EQUAL var_value
 
-var_name: /[a-zA-Z0-9_\-][a-zA-Z0-9_\-\.\/]*/
+var_name: /[a-zA-Z0-9_\-\.][a-zA-Z0-9_\-\.\/]*/
       | "\"" /[a-zA-Z0-9_\-\[\]\@][a-zA-Z0-9_\- \!\?\.\[\]\(\)\,\+\'\@\:\/\*\&]*/ "\""
 
 T_VAR_TYPE: "i64" | "p2" | "p3" | "p4" | "ip2" | "ip3" | "b" | "c" | "m" | "t" | "i" | "r"
@@ -27,7 +27,8 @@ numbers_list: [SIGNED_NUMBER ("," SIGNED_NUMBER)* ]
 value_array: T_LSQB value_array_el* T_RSQB
 value_array_el: T_LSQB numbers_list T_RSQB
 
-r_include: "include" /.+/
+// temporary disabled
+//_r_include: "include" /.+/ NEWLINE+
 
 expr_end: ";"+ | NEWLINE+
 expr_end_optional: expr_end*
@@ -38,12 +39,14 @@ T_RBRACE: "}"
 T_LSQB: "["
 T_RSQB: "]"
 
-COMMENT: /\/\/.*/
+COMMENT: "//" /.*/ NEWLINE+
 
 %import common.ESCAPED_STRING
 %import common.NEWLINE
 %import common.SIGNED_NUMBER
 %import common.WS_INLINE
+%import common.WS
 
 %ignore WS_INLINE
+%ignore WS
 %ignore COMMENT

@@ -8,6 +8,9 @@ import re
 from collections import OrderedDict
 from typing import Tuple, List, Iterable, Any, Dict
 
+from lark import Lark, LarkError
+
+
 type_list = {
     0x0: 'size', 0x1: 'str', 0x2: 'int', 0x3: 'float', 0x4: 'vec2f',
     0x5: 'vec3f', 0x6: 'vec4f', 0x7: 'vec2i', 0x8: 'vec3i', 0x9: 'bool',
@@ -25,14 +28,23 @@ type_list_strict_blk = {
 
 quotless_variable_name = re.compile(r"^[\w\.\-]+$")
 
+blk_parser = None
+
 
 class WrongFiletypeError(RuntimeError):
     """
-    Throws when wrong header in file occurs.
+    Throws when file not packed and not text form of blk
     """
     def __init__(self, arg):
         self.param = arg
 
+
+class NotPackedBLKError(RuntimeError):
+    """
+    Throws when file not packed blk type
+    """
+    def __init__(self, arg):
+        self.param = arg
 
 # https://stackoverflow.com/questions/13249415
 # using private interface
@@ -86,7 +98,7 @@ class BLK:
         # TODO: error handle
         magic = struct.unpack_from('4s', self.data, 0)[0]
         if magic not in [BLK.bbf_magic, BLK.bbz_magic]:
-            raise WrongFiletypeError("Wrong filetype")
+            raise NotPackedBLKError("Not packed blk file")
 
         if magic == BLK.bbz_magic:
             unpacked_size = struct.unpack_from('I', self.data, 4)[0]
@@ -531,22 +543,37 @@ class BLK:
 
 def unpack_file(filename, out_type: int):
     with open(filename, 'rb') as f:
-        data = f.read()
-    if len(data) == 0:
+        binary_data = f.read()
+    # don't delete empty blks
+    if len(binary_data) == 0:
         print('    ', 'Empty file')
         with open(filename + 'x', 'wb') as f:
             pass
         return
-    blk = BLK(data)
-    with open(filename + 'x', 'w', encoding='utf-8') as f:
-        # TODO: fix copy&paste exception block and better replace TypeError with custom exception type?
+    blk = BLK(binary_data)
+    # TODO: fix this exception block, its ugly
+    decoded_data = None
+    try:
+        decoded_data = blk.unpack(out_type)
+    except NotPackedBLKError as e:
+        global blk_parser
+        if not blk_parser:
+            blk_parser = Lark(open('blk.lark').read(), parser='lalr')
         try:
-            decoded_data = blk.unpack(out_type)
+            # reread file as text and parse it, maybe it already in blk format
+            with open(filename, 'r', newline='') as f:
+                text_data = f.read()
+            blk_parser.parse(text_data)
+            decoded_data = text_data
+        except LarkError as e2:
+            raise WrongFiletypeError("Unknown file type")
+    except WrongFiletypeError as e:
+        print('    ', e)
+    except TypeError as e:
+        print('    ', e)
+    if decoded_data:
+        with open(filename + 'x', 'w', newline='', encoding='utf-8') as f:
             f.write(decoded_data)
-        except WrongFiletypeError as e:
-            print('    ', e)
-        except TypeError as e:
-            print('    ', e)
 
 
 def unpack_dir(dirname, out_type: int):
@@ -592,6 +619,8 @@ def main():
         out_type = BLK.output_type['json']
 
     filename = parse_result.filename
+    if not os.path.exists(filename):
+        print("Path", filename, "not exist")
     if os.path.isfile(filename):
         unpack_file(filename, out_type)
     else:
