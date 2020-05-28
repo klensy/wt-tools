@@ -534,6 +534,8 @@ def unpack_file(filename, out_type: int):
         data = f.read()
     if len(data) == 0:
         print('    ', 'Empty file')
+        with open(filename + 'x', 'wb') as f:
+            pass
         return
     blk = BLK(data)
     with open(filename + 'x', 'w', encoding='utf-8') as f:
