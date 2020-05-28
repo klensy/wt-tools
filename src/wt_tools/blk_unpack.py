@@ -4,6 +4,7 @@ import os.path
 import struct
 import uuid
 import zlib
+import re
 from collections import OrderedDict
 from typing import Tuple, List, Iterable, Any, Dict
 
@@ -21,6 +22,8 @@ type_list_strict_blk = {
     0xa: 'c', 0xb: 'm', 0xc: 'i64', 0x10: 'typex7',
     0x89: 'b'  # same as 'bool', but reversed
 }
+
+quotless_variable_name = re.compile(r"^[\w\.\-]+$")
 
 
 class WrongFiletypeError(RuntimeError):
@@ -469,13 +472,16 @@ class BLK:
     # format output for strict blk type
     def print_item_for_strict_blk(self, item_str_id, item_type, item_data,
                                   indent_level: int) -> str:
-        # check if item_str_id is string with spaces, then add quotes
-        if ' ' in item_str_id:
-            item_str_id = '"' + item_str_id + '"'
         ret = "%s%s:%s=" % ('  ' * indent_level, item_str_id, type_list_strict_blk[item_type])
         item_type_from_list = type_list[item_type]
         if item_type_from_list == 'str':
-            return '%s"%s"' % (ret, item_data)
+            # if double quote in string: escape with single quote
+            if '"' in item_data:
+                return "%s'%s'" % (ret, item_data)
+            # else use double quote
+            # TODO what if single and double quote used?
+            else:
+                return '%s"%s"' % (ret, item_data)
         elif item_type_from_list == 'bool' or item_type_from_list == 'typex':
             item_val = 'yes' if bool(item_data) else 'no'
             return ret + item_val
@@ -499,6 +505,10 @@ class BLK:
         lines = []
         for line in s_data:
             id_str_name = line[0]
+            # check if name matches allowed blk variable name, or quot it
+            # TODO: what if double quote or single and double in name?
+            if not quotless_variable_name.match(id_str_name):
+                id_str_name = '"' + id_str_name + '"'
             if type_list[line[1]] != 'size':
                 lines.append(self.print_item_for_strict_blk(id_str_name, line[1], line[2], indent_level))
             else:  # inner list
