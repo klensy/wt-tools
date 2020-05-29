@@ -1,15 +1,16 @@
 import json
 import os.path
+import re
 import struct
 import uuid
 import zlib
-import re
 from collections import OrderedDict
 from typing import Tuple, List, Iterable, Any, Dict
 
-from lark import Lark, LarkError
 import click
+from lark import Lark, LarkError
 
+from formats.common import get_tool_path
 
 type_list = {
     0x0: 'size', 0x1: 'str', 0x2: 'int', 0x3: 'float', 0x4: 'vec2f',
@@ -561,7 +562,8 @@ def unpack_file(filename: os.PathLike, out_type: int):
     except NotPackedBLKError as e:
         global blk_parser
         if not blk_parser:
-            blk_parser = Lark(open('blk.lark').read(), parser='lalr')
+            grammar_path = 'blk.lark'
+            blk_parser = Lark(open(os.path.join(get_tool_path(), grammar_path)).read(), parser='lalr')
         try:
             # reread file as text and parse it, maybe it already in blk format
             with open(filename, 'r', newline='') as f:

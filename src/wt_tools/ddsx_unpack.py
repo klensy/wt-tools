@@ -1,8 +1,13 @@
-import struct, sys, ctypes, zlib
+import ctypes
 import os.path
+import struct
+import sys
+import zlib
+
 import pylzma
 import zstandard
 
+from formats.common import get_tool_path
 from formats.ddsx_parser import ddsx
 
 ddsx_types = [b'DXT1', b'DXT5']
@@ -29,11 +34,12 @@ dds_header = [
 compression_type = {0x0: "not_packed", 0x20: "zstd", 0x40: "lzma", 0x60: "oodle", 0x80: "zlib"}
 
 dll_name = 'oo2core_6_win64.dll'
+dll_real_path = os.path.join(get_tool_path(), dll_name)
 oodle_dll = None
-if not os.path.exists(dll_name):
+if not os.path.exists(dll_real_path):
     print("Can't unpack oodle compressed textures, until {} not placed to wt-tools directory".format(dll_name))
 else:
-    oodle_dll = ctypes.cdll.LoadLibrary('oo2core_6_win64.dll')
+    oodle_dll = ctypes.cdll.LoadLibrary(dll_real_path)
 
 
 def unpack(data):

@@ -7,7 +7,7 @@ includes = []
 excludes = ["socket", "unittest", "http", "email", "pydoc", "construct.examples", "bz2"]
 includefiles = [src_path + "/blk.lark"]
 zip_include_packages = ["collections", "construct", "ctypes", "encodings", "json", "logging", "importlib", "formats",
-                        "zstandard", "xml"]
+                        "zstandard", "xml", "urllib", "distutils", "click", "pkg_resources"]
 
 
 blk_unpack = Executable(

@@ -1,8 +1,9 @@
-import os.path
 import argparse
+import os.path
+
 from lark import Lark
 
-from formats.common import blk_transformer
+from formats.common import blk_transformer, get_tool_path
 
 strip_options = {
     'strip_empty_objects': False,
@@ -61,7 +62,8 @@ def main():
     with open(filename, mode='r', encoding="utf8") as f:
         data = f.read()
 
-    blk_parser = Lark(open('blk.lark').read(), parser='lalr',
+    grammar_path = 'blk.lark'
+    blk_parser = Lark(open(os.path.join(get_tool_path(), grammar_path)).read(), parser='lalr',
                       transformer=blk_transformer(strip_options), keep_all_tokens=True)
 
     parsed_data = blk_parser.parse(data)

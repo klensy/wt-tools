@@ -1,7 +1,9 @@
+import os.path
+import sys
 import zlib
 
-from lark import Transformer, tree, lexer
 from construct import Construct, Struct, Tell, Computed, Seek, this
+from lark import Transformer, tree, lexer
 
 
 # used for unpacking zlib block and return in context
@@ -120,3 +122,14 @@ def blk_transformer(strip_options):
             return ''.join(s)
 
     return BLKTransformer()
+
+
+def get_tool_path() -> os.PathLike:
+    tool_path = None
+    if getattr(sys, 'frozen', False):
+        # frozen
+        tool_path = os.path.dirname(sys.executable)
+    else:
+        # unfrozen
+        tool_path = os.path.dirname(os.path.realpath(__file__))
+    return tool_path
