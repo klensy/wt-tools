@@ -13,3 +13,6 @@ git+https://github.com/anthony-tuininga/cx_Freeze.git@f08ba084aee9
 
 # for blk minimizing
 lark-parser==0.8.5
+
+# for command line parsing
+click==7.1.2

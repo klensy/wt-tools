@@ -1,4 +1,3 @@
-import argparse
 import json
 import os.path
 import struct
@@ -9,6 +8,7 @@ from collections import OrderedDict
 from typing import Tuple, List, Iterable, Any, Dict
 
 from lark import Lark, LarkError
+import click
 
 
 type_list = {
@@ -541,13 +541,16 @@ class BLK:
         return key_hash
 
 
-def unpack_file(filename, out_type: int):
+def unpack_file(filename: os.PathLike, out_type: int):
     with open(filename, 'rb') as f:
         binary_data = f.read()
+
+    out_filename, ext = os.path.splitext(filename)
+    out_filename = os.path.join(out_filename + ext + 'x')
     # don't delete empty blks
     if len(binary_data) == 0:
         print('    ', 'Empty file')
-        with open(filename + 'x', 'wb') as f:
+        with open(out_filename, 'wb') as f:
             pass
         return
     blk = BLK(binary_data)
@@ -572,11 +575,11 @@ def unpack_file(filename, out_type: int):
     except TypeError as e:
         print('    ', e)
     if decoded_data:
-        with open(filename + 'x', 'w', newline='', encoding='utf-8') as f:
+        with open(out_filename, 'w', newline='', encoding='utf-8') as f:
             f.write(decoded_data)
 
 
-def unpack_dir(dirname, out_type: int):
+def unpack_dir(dirname: os.PathLike, out_type: int):
     """
     Unpack all *.blk files in `dirname` with `out_type` format.
     """
@@ -593,22 +596,25 @@ def unpack_dir(dirname, out_type: int):
                     print_exc(file=sys.stdout)
 
 
-def main():
-    parser = argparse.ArgumentParser(formatter_class=argparse.RawTextHelpFormatter,
-                                     description="Unpacks blk files to human readable version")
+@click.command()
+@click.argument('path', type=click.Path(exists=True))
+@click.option('--format', 'out_format', type=click.Choice(['json', 'json_min', 'strict_blk'], case_sensitive=False),
+              default='json', show_default=True)
+def main(path: os.PathLike, out_format):
+    """
+    blk_unpack: Unpacks blk files to human readable version
 
-    parser.add_argument('filename', help="unpack from: file or directory")
-    format_help = "Format variants:\n" \
-                  "json - for pretty formatted json (default)\n" \
-                  "json_min - for minified json\n" \
-                  "strict_blk - for ingame blk format"
+    PATH: unpack from file or directory
 
-    parser.add_argument('--format', dest='format', action='store', choices=['json', 'json_min', 'strict_blk'],
-                        default='json', help=format_help)
+    format: choose output format:
+    json - for pretty formatted json (default);
+    json_min - for minified json;
+    strict_blk - for used in game blk format.
 
-    parse_result = parser.parse_args()
-
-    out_format = parse_result.format
+    examples: `blk_unpack some.blk` will unpack to `some.blkx` using json format (default). If you want to get file to
+    use it in game, use 'blk_unpack --format=strict_blk some.blk'. You can also unpack a folder with blk files:
+    `blk_unpack some_folder`.
+    """
     if out_format == 'json':
         out_type = BLK.output_type['json']
     elif out_format == 'json_min':
@@ -618,13 +624,10 @@ def main():
     else:
         out_type = BLK.output_type['json']
 
-    filename = parse_result.filename
-    if not os.path.exists(filename):
-        print("Path", filename, "not exist")
-    if os.path.isfile(filename):
-        unpack_file(filename, out_type)
+    if os.path.isfile(path):
+        unpack_file(path, out_type)
     else:
-        unpack_dir(filename, out_type)
+        unpack_dir(path, out_type)
 
 
 if __name__ == '__main__':
