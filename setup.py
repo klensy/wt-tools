@@ -1,41 +1,43 @@
-from cx_Freeze import setup, Executable
+import os.path
 import sys
+
+from cx_Freeze import setup, Executable
 
 src_path = "src/wt_tools/"
 packages = []
 includes = []
 excludes = ["socket", "unittest", "http", "email", "pydoc", "construct.examples", "bz2"]
-includefiles = [src_path + "/blk.lark"]
+includefiles = [os.path.join(src_path, "./formats/blk.lark")]
 zip_include_packages = ["collections", "construct", "ctypes", "encodings", "json", "logging", "importlib", "formats",
                         "zstandard", "xml", "urllib", "distutils", "click", "pkg_resources"]
 
 
 blk_unpack = Executable(
-    script=src_path + "blk_unpack.py",
+    script=os.path.join(src_path, "blk_unpack.py"),
 )
 
 clog_unpack = Executable(
-    script=src_path + "clog_unpack.py",
+    script=os.path.join(src_path, "clog_unpack.py"),
 )
 
 ddsx_unpack = Executable(
-    script=src_path + "ddsx_unpack.py",
+    script=os.path.join(src_path, "ddsx_unpack.py"),
 )
 
 dxp_unpack = Executable(
-    script=src_path + "dxp_unpack.py",
+    script=os.path.join(src_path, "dxp_unpack.py"),
 )
 
 vromfs_unpacker = Executable(
-    script=src_path + "vromfs_unpacker.py",
+    script=os.path.join(src_path, "vromfs_unpacker.py"),
 )
 
 wrpl_unpacker = Executable(
-    script=src_path + "wrpl_unpacker.py",
+    script=os.path.join(src_path, "wrpl_unpacker.py"),
 )
 
 blk_minify = Executable(
-    script=src_path + "blk_minify.py",
+    script=os.path.join(src_path, "blk_minify.py"),
 )
 
 setup(

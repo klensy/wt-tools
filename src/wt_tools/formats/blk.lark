@@ -9,10 +9,10 @@ values_in_named_object: key_type_value expr_end (values_in_named_object)*
 
 named_object: var_name T_LBRACE NEWLINE* values_in_named_object? T_RBRACE
 
-key_type_value: var_name T_COLON T_VAR_TYPE T_EQUAL var_value
+key_type_value: var_name T_COLON T_VAR_TYPE T_EQUAL var_value COMMENT?
 
 var_name: /[a-zA-Z0-9_\-\.][a-zA-Z0-9_\-\.\/]*/
-      | "\"" /[a-zA-Z0-9_\-\[\]\@][a-zA-Z0-9_\- \!\?\.\[\]\(\)\,\+\'\@\:\/\*\&]*/ "\""
+      | "\"" /[a-zA-Z0-9_\- \!\?\.\[\]\(\)\,\+\'\@\:\/\*\&]+/ "\""
 
 T_VAR_TYPE: "i64" | "p2" | "p3" | "p4" | "ip2" | "ip3" | "b" | "c" | "m" | "t" | "i" | "r"
 
@@ -21,6 +21,8 @@ var_value: /\"[\'\w\/\.\_\;\-\+\*\=\s\(\)\!\,\?\[\]\@\#\:\\\&\%\<\>\^\$\~\{\}\|\
     | numbers_list
     | "yes"
     | "no"
+    | "true"
+    | "false"
     | value_array
 
 numbers_list: [SIGNED_NUMBER ("," SIGNED_NUMBER)* ]
@@ -39,7 +41,7 @@ T_RBRACE: "}"
 T_LSQB: "["
 T_RSQB: "]"
 
-COMMENT: "//" /.*/ NEWLINE+
+COMMENT: "//" /.*/
 
 %import common.ESCAPED_STRING
 %import common.NEWLINE
