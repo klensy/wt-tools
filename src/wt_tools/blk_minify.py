@@ -1,5 +1,6 @@
 import argparse
 import os.path
+from typing import AnyStr, Dict
 
 from lark import Lark
 
@@ -10,6 +11,14 @@ strip_options = {
     'strip_comment_objects': False,
     'strip_disabled_objects': False
 }
+
+
+def minify(blk_data: AnyStr, minify_options: Dict[AnyStr, bool]) -> AnyStr:
+    grammar_path = 'blk.lark'
+    blk_parser = Lark(open(os.path.join(get_tool_path(), grammar_path)).read(), parser='lalr',
+                      transformer=blk_transformer(minify_options), keep_all_tokens=True)
+
+    return blk_parser.parse(blk_data)
 
 
 def main():
@@ -62,11 +71,7 @@ def main():
     with open(filename, mode='r', encoding="utf8") as f:
         data = f.read()
 
-    grammar_path = 'blk.lark'
-    blk_parser = Lark(open(os.path.join(get_tool_path(), grammar_path)).read(), parser='lalr',
-                      transformer=blk_transformer(strip_options), keep_all_tokens=True)
-
-    parsed_data = blk_parser.parse(data)
+    parsed_data = minify(data, strip_options)
     with open(out_filename, 'w', encoding="utf8") as f:
         f.write(parsed_data)
     print("minified {} from {} to {}, with rate {:.2}".format(filename,
