@@ -15,7 +15,9 @@ All new features in [dev](https://github.com/klensy/wt-tools/tree/dev) branch, m
 #### Easy way
 
 1. Download compiled files (exe files, compressed in archive) from [here](https://github.com/klensy/wt-tools/releases), **no python** required.
-2. Unzip arhive.  
+2. Unzip archive.  
+
+If you want to unpack textures, you need to find (file not provided) and place `oo2core_6_win64.dll` file to wt-tools directory, near ddsx_unpack.exe.
 
 ## Usage
 
@@ -40,6 +42,7 @@ This will unpack texture from `somefile.ddsx` to `somefile.dds`.
 
     ddsx_unpack.exe some_folder
 This will unpack textures from folder `some_folder` to `some_folder`, unpacked textures will be inside with `*.dds` extension.
+For unpacking most of textures, you need `oo2core_6_win64.dll`, as noted in installation.
 
 #### blk_unpack
 Tool for unpacking blk files, that contain some text data
@@ -78,6 +81,8 @@ For example, for minimum size:
 
     blk_minify.exe --strip_all some_mission.blk some_mission_minified.blk
 
+## Errors?
+Try to launch tools from commandline, it should print some error.
 
 ##  Would you like to know more?
 Read [wiki](https://github.com/klensy/wt-tools/wiki).
