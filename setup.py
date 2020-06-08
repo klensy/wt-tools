@@ -9,7 +9,7 @@ includes = []
 excludes = ["socket", "unittest", "http", "email", "pydoc", "construct.examples", "bz2"]
 includefiles = [os.path.join(src_path, "./formats/blk.lark"), os.path.join(src_path, '../../README.md')]
 zip_include_packages = ["collections", "construct", "ctypes", "encodings", "json", "logging", "importlib", "formats",
-                        "zstandard", "xml", "urllib", "distutils", "click", "pkg_resources"]
+                        "zstandard", "xml", "urllib", "distutils", "click", "pkg_resources", "colorama"]
 
 
 blk_unpack = Executable(
