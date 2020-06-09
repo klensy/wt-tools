@@ -19,7 +19,7 @@ jobs:
       with:
         ref: dev
     - name: setup python
-      uses: actions/setup-python@v1
+      uses: actions/setup-python@v2
       with:
         python-version: '3.7'
         architecture: 'x64'
@@ -28,7 +28,7 @@ jobs:
     - name: build release
       run: python setup.py build
     - name: upload artifact
-      uses: actions/upload-artifact@v1
+      uses: actions/upload-artifact@v2
       with:
         name: wt-tools_${{ matrix.os }}
         path: build/
