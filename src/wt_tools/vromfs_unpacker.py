@@ -41,20 +41,20 @@ def unpack(filename: os.PathLike, dist_dir: os.PathLike, file_list_path: Optiona
         # normalise paths in inputted list
         file_list = [os.path.normcase(p) for p in file_list]
 
-    with click.progressbar(range(parsed.body.files_count), label="Unpacking files") as bar:
+    with click.progressbar(range(parsed.body.data.data.files_count), label="Unpacking files") as bar:
         for i in bar:
-            vromfs_internal_file_path = parsed.body.filename_table.filenames[i]
+            vromfs_internal_file_path = parsed.body.data.data.filename_table.filenames[i]
             if file_list_path:
                 if os.path.normcase(vromfs_internal_file_path) in file_list:
                     unpacked_filename = os.path.join(dist_dir, vromfs_internal_file_path)
                     mkdir_p(unpacked_filename)
                     with open(unpacked_filename, 'wb') as f:
-                        f.write(parsed.body.file_data_table.file_data_list[i].data)
+                        f.write(parsed.body.data.data.file_data_table.file_data_list[i].data)
             else:
                 unpacked_filename = os.path.join(dist_dir, vromfs_internal_file_path)
                 mkdir_p(unpacked_filename)
                 with open(unpacked_filename, 'wb') as f:
-                    f.write(parsed.body.file_data_table.file_data_list[i].data)
+                    f.write(parsed.body.data.data.file_data_table.file_data_list[i].data)
 
 
 def files_list_info(filename: os.PathLike, dist_file: Optional[os.PathLike]) -> Optional[str]:
@@ -63,9 +63,9 @@ def files_list_info(filename: os.PathLike, dist_file: Optional[os.PathLike]) -> 
     parsed = vromfs_file.parse(data)
     out_list = []
 
-    for i in range(parsed.body.files_count):
-        m = md5(parsed.body.file_data_table.file_data_list[i].data).hexdigest()
-        out_list.append({"filename": os.path.normcase(parsed.body.filename_table.filenames[i]), "hash": m})
+    for i in range(parsed.body.data.data.files_count):
+        m = md5(parsed.body.data.data.file_data_table.file_data_list[i].data).hexdigest()
+        out_list.append({"filename": os.path.normcase(parsed.body.data.data.filename_table.filenames[i]), "hash": m})
     out_json = json.dumps({'version': 1, 'filelist': out_list})
     if not dist_file:
         return out_json

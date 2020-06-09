@@ -1,8 +1,8 @@
 import struct
-import zstandard
 
+import zstandard
 from construct import Construct, Enum, Byte, this, Adapter, Struct, Seek, Int32ul, Array, CString, Tell, If, Bytes, \
-    Computed, Embedded, Switch, Error, Int24ul, Hex, String, Int16ul, GreedyBytes, StringsAsBytes
+    Computed, Embedded, Switch, Int24ul, Hex, Int16ul, GreedyBytes, RestreamData
 
 from .common import zlib_stream
 
@@ -31,22 +31,21 @@ class ZstdContext(Construct):
                                  (ctx.second_part.data if ctx.second_part.data else b'') + \
                                  (ctx.align_tail if ctx.align_tail else b'')
         dctx = zstandard.ZstdDecompressor()
-        decompressed_data = dctx.decompress(deobfs_compressed_data, max_output_size=ctx._._.header.original_size)
-        ctx.parsed_data = vromfs_not_packed_body.parse(decompressed_data)
+        ctx.decompressed_data = dctx.decompress(deobfs_compressed_data, max_output_size=ctx._._.header.original_size)
 
 
 class ZlibAdapter(Adapter):
-    def _decode(self, obj, context):
+    def _decode(self, obj, context, path):
         return vromfs_not_packed_body.parse(obj)
 
 
 class Obfs16Adapter(Adapter):
-    def _decode(self, obj, context):
+    def _decode(self, obj, context, path):
         return struct.pack("<4L", *[x ^ y for (x, y) in zip(obj, [0xAA55AA55, 0xF00FF00F, 0xAA55AA55, 0x12481248])])
 
 
 class Obfs32Adapter(Adapter):
-    def _decode(self, obj, context):
+    def _decode(self, obj, context, path):
         return struct.pack("<4L", *[x ^ y for (x, y) in zip(obj, [0x12481248, 0xAA55AA55, 0xF00FF00F, 0xAA55AA55])])
 
 
@@ -70,7 +69,7 @@ filename_table = Struct(
     # but we cheat, just read total_files * cstrings
     "first_filename_offset" / Int32ul,
     Seek(this._.data_start_offset + this.first_filename_offset),
-    "filenames" / Array(this._.files_count, CString(encoding="utf8"))
+    "filenames" / Array(this._.files_count, CString(encoding="utf8")),
 )
 
 file_data_record = Struct(
@@ -84,26 +83,30 @@ file_data_record = Struct(
     # read file data
     "data" / Bytes(this.file_data_size),
     # return to next file data record in table
-    Seek(this.next_file_data_record, 0)
+    Seek(this.next_file_data_record, 0),
 )
 
 file_data_table = Struct(
     # move to location of file data table offset
     Seek(this._.data_start_offset + this._.filedata_table_offset, 0),
     # main actions in file_data_record
-    "file_data_list" / Array(this._.files_count, file_data_record)
-)
-vromfs_not_packed_body = Struct(
-    "data_start_offset" / Tell,
-    "filename_table_offset" / Int32ul,
-    "files_count" / Int32ul,
-    Seek(8, 1),
-    "filedata_table_offset" / Int32ul,
-    "filename_table" / filename_table,
-    "file_data_table" / file_data_table,
+    "file_data_list" / Array(this._.files_count, file_data_record),
 )
 
-vromfs_zstd_packed_body = Struct(
+not_packed_stream = Struct(
+        "data_start_offset" / Tell,
+        "filename_table_offset" / Int32ul,
+        "files_count" / Int32ul,
+        Seek(8, 1),
+        "filedata_table_offset" / Int32ul,
+        "filename_table" / filename_table,
+        "file_data_table" / file_data_table,
+)
+vromfs_not_packed_body = Struct(
+    "data" / Struct(Embedded(not_packed_stream)),
+)
+
+zstd_stream = "zstd_stream" / Struct(
     "before_obfs" / Tell,
     "first_part" / If(
         this._._.header.packed_size >= 16,
@@ -125,17 +128,21 @@ vromfs_zstd_packed_body = Struct(
         Bytes(this._._.header.packed_size % 4)
     ),
     ZstdContext(),
-    Embedded(Computed(this.parsed_data))
+)
+
+vromfs_zstd_packed_body = Struct(
+    Embedded(zstd_stream),
+    "data"/ RestreamData(this.decompressed_data, not_packed_stream),
 )
 
 vromfs_zlib_packed_body = Struct(
     Embedded(zlib_stream),
-    Embedded(ZlibAdapter(Computed(this.decompressed_body)))
+    "data"/ RestreamData(this.decompressed_body, not_packed_stream),
 )
 
 vromfs_header = Struct(
-    "magic" / Enum(String(4, encoding=StringsAsBytes), vrfs=b"VRFs", vrfx=b"VRFx"),
-    "platform" / Enum(String(4, encoding=StringsAsBytes), pc=b"\x00\x00PC", ios=b"\x00iOS", andr=b"\x00and"),
+    "magic" / Enum(Bytes(4), vrfs=b"VRFs", vrfx=b"VRFx"),
+    "platform" / Enum(Bytes(4), pc=b"\x00\x00PC", ios=b"\x00iOS", andr=b"\x00and"),
     "original_size" / Int32ul,
     "packed_size" / Int24ul,
     "vromfs_type" / vromfs_type,
@@ -145,11 +152,14 @@ vromfs_header = Struct(
 )
 
 vromfs_body = Struct(
-    Embedded(Switch(this._.header.vromfs_packed_type, {
-        "not_packed": vromfs_not_packed_body,
-        "zstd_packed": vromfs_zstd_packed_body,
-        "zlib_packed": vromfs_zlib_packed_body
-    }, default=Error)),
+    "data" / Switch(
+        this._.header.vromfs_packed_type,
+        {
+            "not_packed": vromfs_not_packed_body,
+            "zstd_packed": vromfs_zstd_packed_body,
+            "zlib_packed": vromfs_zlib_packed_body
+        }
+    ),
 )
 
 vromfs_file = Struct(
