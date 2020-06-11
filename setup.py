@@ -42,9 +42,10 @@ blk_minify = Executable(
 
 setup(
     name="wt_tools",
-    version="0.2.2.5-dev",
+    version="0.2.2.6-dev",
     author='klensy',
     description="War Thunder resource extraction tools",
+    url="https://github.com/klensy/wt-tools",
     options={"build_exe": {"includes": includes, "excludes": excludes, "include_files": includefiles,
                            "packages": packages, "zip_include_packages": zip_include_packages,
                            "path": sys.path + [src_path]}},

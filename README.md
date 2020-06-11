@@ -2,7 +2,7 @@
 
 Tools that help you extract resources from game: fonts, textures, FM/DM of tanks/planes/ships, parameters of weapons, and other interesting stuff.
 
-It also should should work for Cuisine Royale and Enlisted games.
+It also should work for Cuisine Royale and Enlisted games.
 
 All new features in [dev](https://github.com/klensy/wt-tools/tree/dev) branch, master updated not so frequently.
 ## Installation
@@ -13,7 +13,6 @@ All new features in [dev](https://github.com/klensy/wt-tools/tree/dev) branch, m
 4. Run scripts from console, as described lower.
 
 #### Easy way
-
 1. Download compiled files (exe files, compressed in archive) from [here](https://github.com/klensy/wt-tools/releases), **no python** required.
 2. Unzip archive.  
 
@@ -25,7 +24,15 @@ If you want to unpack textures, you need to find (file not provided) and place `
 Tool for unpacking game archives, this archives can contain any type of data:
 
     vromfs_unpacker.exe somefile.vromfs.bin
-This will unpack files from `somefile.vromfs.bin` to `somefile.vromfs.bin_u` folder
+This will unpack files from `somefile.vromfs.bin` to `somefile.vromfs.bin_u` folder.
+
+Options:
+* -O, --output: path where to unpack vromfs file, if omitted is FILENAME with appended _u, like some.vromfs.bin_u; if used
+then, for example `vromfs_unpacker.exe somefile.vromfs.bin --output my_folder`
+* --metadata: if present, prints metadata of vromfs file: json with {filename: md5_hash}. If `--output` option used,
+prints to file instead.
+* --input_filelist: pass the file with list of files you want to unpack and only this files will be unpacked.
+File list should be a json array, like: `["buildtstamp", "gamedata/units/tankmodels/fr_b1_ter.blk"]`
 
 #### dxp_unpack
 Tool for unpacking texture archives:
@@ -42,7 +49,7 @@ This will unpack texture from `somefile.ddsx` to `somefile.dds`.
 
     ddsx_unpack.exe some_folder
 This will unpack textures from folder `some_folder` to `some_folder`, unpacked textures will be inside with `*.dds` extension.
-For unpacking most of textures, you need `oo2core_6_win64.dll`, as noted in installation.
+For unpacking most of textures, you need `oo2core_6_win64.dll`, as noted in installation section and will work only in Windows.
 
 #### blk_unpack
 Tool for unpacking blk files, that contain some text data
