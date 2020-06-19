@@ -1,5 +1,6 @@
-from construct import Struct, Int32ul, Int16ul, Int8ul, Nibble, Const, FlagsEnum, IfThenElse, this, Bytes, BitStruct
+from construct import Struct, Int32ul, Int16ul, Int8ul, Nibble, Const, IfThenElse, this, Bytes, BitStruct
 
+from formats.common import FlagsEnumCumulative
 
 '''
 typedef enum FLG_CONTIGUOUS_MIP {
@@ -26,7 +27,7 @@ typedef enum FLG_CONTIGUOUS_MIP {
     FLG_ZSTD = 0x20000000
 } FLG_CONTIGUOUS_MIP;
 '''
-ddsx_flags_enum = FlagsEnum(
+ddsx_flags_enum = FlagsEnumCumulative(
     Int32ul,
     FLG_7ZIP=0x40_000_000,
     FLG_ADDRU_MASK=0xf,

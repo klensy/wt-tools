@@ -2,7 +2,7 @@ import os.path
 import sys
 import zlib
 
-from construct import Construct, Struct, Tell, Computed, Seek, this
+from construct import Construct, Struct, Tell, Computed, Seek, this, FlagsEnum, Container, BitwisableString
 from lark import Transformer, tree, lexer
 
 
@@ -19,6 +19,30 @@ class ZlibContext(Construct):
         decompressed_data = zdo.decompress(data)
         size_of_unused_data = len(zdo.unused_data)
         return decompressed_data, size_of_unused_data
+
+
+class FlagsEnumCumulative(FlagsEnum):
+    def __init__(self, subcon, *merge, **flags):
+        super(FlagsEnumCumulative, self).__init__(subcon)
+        for enum in merge:
+            for enumentry in enum:
+                flags[enumentry.name] = enumentry.value
+        self.flags = flags
+        # keep reverse sorted flag values, so we can substract from our flag
+        self.flags_reverse_sorted = sorted(self.flags.items(), key=lambda x: x[1], reverse=True)
+
+    def _decode(self, obj, context, path):
+        obj2 = Container()
+        obj2._flagsenum = True
+        assert isinstance(obj, int)
+        leftover = obj
+        for name, value in self.flags_reverse_sorted:
+            if leftover > value:
+                leftover -= value
+                obj2[BitwisableString(name)] = True
+            else:
+                obj2[BitwisableString(name)] = False
+        return obj2
 
 
 # only one 'real' field is `decompressed_body`, other only for changing offset
