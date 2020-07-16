@@ -16,3 +16,9 @@ lark-parser==0.8.5
 
 # for command line parsing
 click==7.1.2
+
+# for yup file parsing
+bencode.py==4.0.0
+
+# for diffing jsons
+jsondiff==1.2.0
