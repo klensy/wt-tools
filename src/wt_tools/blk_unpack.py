@@ -86,7 +86,7 @@ class BLK:
     units_length_type_v3_offset = 0xd
     bbf_magic = b'\x00BBF'
     bbz_magic = b'\x00BBz'
-    output_type = {'json': 0x0, 'json_min': 0x1, 'strict_blk': 0x2}
+    output_type = {'json': 0x0, 'json_min': 0x1, 'strict_blk': 0x2, 'json_2': 0x3}
 
     def __init__(self, data):
         self.data = data
@@ -155,6 +155,8 @@ class BLK:
                 return json.dumps(full_data, cls=NoIndentEncoder, separators=(',', ':'))
             elif out_type == BLK.output_type['strict_blk']:
                 return self.print_strict_blk(full_data)
+            elif out_type == BLK.output_type['json_2']:
+                return json.dumps(full_data, cls=NoIndentEncoder, indent=2, separators=(',', ': '))
             else:
                 print("error out type: %s" % out_type)
                 exit(1)
@@ -227,6 +229,8 @@ class BLK:
                 return json.dumps(full_data, ensure_ascii=False, cls=NoIndentEncoder, separators=(',', ':'))
             elif out_type == BLK.output_type['strict_blk']:
                 return self.print_strict_blk(full_data)
+            elif out_type == BLK.output_type['json_2']:
+                return json.dumps(full_data, cls=NoIndentEncoder, indent=2, separators=(',', ': '))
             else:
                 print("error out type: %s" % out_type)
                 exit(1)
@@ -275,8 +279,10 @@ class BLK:
         cur_p += 4
         if self.blk_version == 2:
             full_data, cur_p = self.parse_inner(cur_p, b_size, sub_units_names, out_type)
-        else:
+        elif self.blk_version == 3:
             full_data, cur_p = self.parse_inner_v3(cur_p, b_size, sub_units_names, out_type)
+        else:
+            raise ValueError("unknown blk_version:", self.blk_version)
         return full_data
 
     def read_first_header(self, offset: int):
@@ -600,8 +606,8 @@ def unpack_dir(dirname: os.PathLike, out_type: int):
 
 @click.command()
 @click.argument('path', type=click.Path(exists=True))
-@click.option('--format', 'out_format', type=click.Choice(['json', 'json_min', 'strict_blk'], case_sensitive=False),
-              default='json', show_default=True)
+@click.option('--format', 'out_format', type=click.Choice(['json', 'json_min', 'strict_blk', 'json_2'],
+    case_sensitive=False), default='json', show_default=True)
 def main(path: os.PathLike, out_format):
     """
     blk_unpack: Unpacks blk files to human readable version
@@ -623,6 +629,8 @@ def main(path: os.PathLike, out_format):
         out_type = BLK.output_type['json_min']
     elif out_format == 'strict_blk':
         out_type = BLK.output_type['strict_blk']
+    elif out_format == 'json_2':
+        out_type = BLK.output_type['json_2']
     else:
         out_type = BLK.output_type['json']
 
