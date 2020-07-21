@@ -94,9 +94,10 @@ class BLK:
         self.ids_w_names: Dict[int, str] = dict()  # {key_id: key_string} for keys
         self.blk_version = 0  # 2 for 1.45 and lower, 3 for 1.47
 
-    def unpack(self, out_type=output_type['json']) -> str:
+    def unpack(self, out_type=output_type['json'], is_sorted=False) -> str:
         # check file header and version
         # TODO: error handle
+        # is_sorted - sort output by keys in json output only
         magic = struct.unpack_from('4s', self.data, 0)[0]
         if magic not in [BLK.bbf_magic, BLK.bbz_magic]:
             raise NotPackedBLKError("Not packed blk file")
@@ -110,132 +111,133 @@ class BLK:
 
         self.blk_version = struct.unpack_from('H', self.data, 0x4)[0]
         if self.blk_version == 2:  # 1.45
-            self.num_of_units_in_file = struct.unpack_from('I', self.data, BLK.num_of_units_in_file_offset)[0]
-            units_size, ids, cur_p = self.get_unit_sizes_and_ids()
-
-            # at this point we have sizes of units
-            while struct.unpack_from('H', self.data, cur_p)[0] == 0x0: cur_p += 2
-            # now get unit names
-            units_names = []
-            for unit_size in units_size:
-                units_names.append(self.data[cur_p: cur_p + unit_size])
-                cur_p += unit_size
-
-            for u_name in units_names:
-                id_hash = self._hash_key_name(u_name)
-                while id_hash in self.ids_w_names:
-                    id_hash += 0x100
-                self.ids_w_names[id_hash] = u_name
-
-            # align to 0x4
-            while cur_p % 4 != 0: cur_p += 1
-
-            total_sub_units = struct.unpack_from('I', self.data, cur_p)[0]
-
-            # print '\nnum of sub units: ' + str(total_sub_units)
-            cur_p += 0x4
-            sub_units_size: List[int] = []
-            while len(sub_units_size) < total_sub_units:
-                sub_units_size.append(struct.unpack_from('H', self.data, cur_p)[0])
-                cur_p += 2
-
-            # at this point we have sizes of sub units
-            sub_units_names = []
-            for s_unit_size in sub_units_size:
-                sub_units_names.append(self.data[cur_p: cur_p + s_unit_size])
-                cur_p += s_unit_size
-
-            # align by 0x4
-            while cur_p % 0x4 != 0: cur_p += 1
-
-            full_data = self.parse_data(cur_p, sub_units_names, out_type)
-            if out_type == BLK.output_type['json']:
-                return json.dumps(full_data, cls=NoIndentEncoder, indent=2, separators=(',', ': '))
-            elif out_type == BLK.output_type['json_min']:
-                return json.dumps(full_data, cls=NoIndentEncoder, separators=(',', ':'))
-            elif out_type == BLK.output_type['strict_blk']:
-                return self.print_strict_blk(full_data)
-            elif out_type == BLK.output_type['json_2']:
-                return json.dumps(full_data, cls=NoIndentEncoder, indent=2, separators=(',', ': '))
-            else:
-                print("error out type: %s" % out_type)
-                exit(1)
+            unpacked_data = self._unpack_v2(out_type)
 
         elif self.blk_version == 3:
-            units_length_type = struct.unpack_from('B', self.data, BLK.units_length_type_v3_offset)[0]
-            if units_length_type == 0x41:
-                cur_p = 0xf
-                self.num_of_units_in_file = struct.unpack_from('B', self.data, BLK.num_of_units_in_file_v3_offset)[0]
-            elif units_length_type == 0x81:
-                cur_p = 0x10
-                self.num_of_units_in_file = struct.unpack_from('H', self.data, BLK.num_of_units_in_file_v3_offset)[0]
-            else:
-                raise TypeError('Unknown units_length_type = %d' % units_length_type)
-
-            # print 'num_of_units_in_file = %d' % self.num_of_units_in_file
-
-            for i in range(self.num_of_units_in_file):
-                unit_length = struct.unpack_from('B', self.data, cur_p)[0]
-                cur_p += 1
-                id_name = self.data[cur_p: cur_p + unit_length].decode('utf-8')
-                cur_p += unit_length
-                id_hash = self._hash_key_name(id_name)
-                while id_hash in self.ids_w_names:
-                    id_hash += 0x100
-                self.ids_w_names[id_hash] = id_name
-
-            # align by 0x4
-            while cur_p % 4 != 0: cur_p += 1
-            # print 'cur_p: %d' % cur_p
-            # test if there exist sub_units_names block
-            sub_units_block_length = struct.unpack_from('H', self.data, cur_p)[0]
-            if sub_units_block_length > 0:
-                cur_p += 2
-                sub_units_block_type = struct.unpack_from('B', self.data, cur_p + 1)[0]
-                cur_p += 2
-                if sub_units_block_type == 0x40:
-                    total_sub_units = struct.unpack_from('B', self.data, cur_p)[0]
-                    cur_p += 1
-                elif sub_units_block_type == 0x80:
-                    total_sub_units = struct.unpack_from('H', self.data, cur_p)[0]
-                    cur_p += 2
-                else:
-                    raise TypeError('Unknown sub_units_block_type: %d' % sub_units_block_type)
-            else:
-                # no sub_units_names
-                total_sub_units = 0
-                cur_p += 4
-            # print 'total_sub_units: %d' % total_sub_units
-            sub_units_names = []
-            for i in range(total_sub_units):
-                unit_length = struct.unpack_from('B', self.data, cur_p)[0]
-                cur_p += 1
-                # 2 byte string length
-                if unit_length >= 0x80:
-                    unit_length = (unit_length - 0x80) * 0x100 + struct.unpack_from('B', self.data, cur_p)[0]
-                    cur_p += 1
-                sub_units_names.append(self.data[cur_p: cur_p + unit_length])
-                cur_p += unit_length
-            # print sub_units_names
-
-            # align by 0x4
-            while cur_p % 0x4 != 0: cur_p += 1
-            # print 'cur_p: %d' % cur_p
-
-            full_data = self.parse_data(cur_p, sub_units_names, out_type)
-            if out_type == BLK.output_type['json']:
-                return json.dumps(full_data, ensure_ascii=False, cls=NoIndentEncoder, indent=2, separators=(',', ': '))
-            elif out_type == BLK.output_type['json_min']:
-                return json.dumps(full_data, ensure_ascii=False, cls=NoIndentEncoder, separators=(',', ':'))
-            elif out_type == BLK.output_type['strict_blk']:
-                return self.print_strict_blk(full_data)
-            elif out_type == BLK.output_type['json_2']:
-                return json.dumps(full_data, cls=NoIndentEncoder, indent=2, separators=(',', ': '))
-            else:
-                print("error out type: %s" % out_type)
-                exit(1)
+            unpacked_data = self._unpack_v3(out_type)
         else:
             raise TypeError('Unknown version %d' % self.blk_version)
+
+        if out_type == BLK.output_type['json']:
+            return json.dumps(unpacked_data, ensure_ascii=False, cls=NoIndentEncoder, indent=2, separators=(',', ': '),
+                              sort_keys=is_sorted)
+        elif out_type == BLK.output_type['json_min']:
+            return json.dumps(unpacked_data, ensure_ascii=False, cls=NoIndentEncoder, separators=(',', ':'),
+                              sort_keys=is_sorted)
+        elif out_type == BLK.output_type['strict_blk']:
+            return self.print_strict_blk(unpacked_data)
+        elif out_type == BLK.output_type['json_2']:
+            return json.dumps(unpacked_data, ensure_ascii=False, cls=NoIndentEncoder, indent=2, separators=(',', ': '),
+                              sort_keys=is_sorted)
+        else:
+            print("error out type: %s" % out_type)
+            exit(1)
+
+    def _unpack_v2(self,  out_type):
+        self.num_of_units_in_file = struct.unpack_from('I', self.data, BLK.num_of_units_in_file_offset)[0]
+        units_size, ids, cur_p = self.get_unit_sizes_and_ids()
+
+        # at this point we have sizes of units
+        while struct.unpack_from('H', self.data, cur_p)[0] == 0x0: cur_p += 2
+        # now get unit names
+        units_names = []
+        for unit_size in units_size:
+            units_names.append(self.data[cur_p: cur_p + unit_size])
+            cur_p += unit_size
+
+        for u_name in units_names:
+            id_hash = self._hash_key_name(u_name)
+            while id_hash in self.ids_w_names:
+                id_hash += 0x100
+            self.ids_w_names[id_hash] = u_name
+
+        # align to 0x4
+        while cur_p % 4 != 0: cur_p += 1
+
+        total_sub_units = struct.unpack_from('I', self.data, cur_p)[0]
+
+        # print '\nnum of sub units: ' + str(total_sub_units)
+        cur_p += 0x4
+        sub_units_size: List[int] = []
+        while len(sub_units_size) < total_sub_units:
+            sub_units_size.append(struct.unpack_from('H', self.data, cur_p)[0])
+            cur_p += 2
+
+        # at this point we have sizes of sub units
+        sub_units_names = []
+        for s_unit_size in sub_units_size:
+            sub_units_names.append(self.data[cur_p: cur_p + s_unit_size])
+            cur_p += s_unit_size
+
+        # align by 0x4
+        while cur_p % 0x4 != 0: cur_p += 1
+
+        full_data = self.parse_data(cur_p, sub_units_names, out_type)
+        return full_data
+
+    def _unpack_v3(self, out_type):
+        units_length_type = struct.unpack_from('B', self.data, BLK.units_length_type_v3_offset)[0]
+        if units_length_type == 0x41:
+            cur_p = 0xf
+            self.num_of_units_in_file = struct.unpack_from('B', self.data, BLK.num_of_units_in_file_v3_offset)[0]
+        elif units_length_type == 0x81:
+            cur_p = 0x10
+            self.num_of_units_in_file = struct.unpack_from('H', self.data, BLK.num_of_units_in_file_v3_offset)[0]
+        else:
+            raise TypeError('Unknown units_length_type = %d' % units_length_type)
+
+        # print 'num_of_units_in_file = %d' % self.num_of_units_in_file
+
+        for i in range(self.num_of_units_in_file):
+            unit_length = struct.unpack_from('B', self.data, cur_p)[0]
+            cur_p += 1
+            id_name = self.data[cur_p: cur_p + unit_length].decode('utf-8')
+            cur_p += unit_length
+            id_hash = self._hash_key_name(id_name)
+            while id_hash in self.ids_w_names:
+                id_hash += 0x100
+            self.ids_w_names[id_hash] = id_name
+
+        # align by 0x4
+        while cur_p % 4 != 0: cur_p += 1
+        # print 'cur_p: %d' % cur_p
+        # test if there exist sub_units_names block
+        sub_units_block_length = struct.unpack_from('H', self.data, cur_p)[0]
+        if sub_units_block_length > 0:
+            cur_p += 2
+            sub_units_block_type = struct.unpack_from('B', self.data, cur_p + 1)[0]
+            cur_p += 2
+            if sub_units_block_type == 0x40:
+                total_sub_units = struct.unpack_from('B', self.data, cur_p)[0]
+                cur_p += 1
+            elif sub_units_block_type == 0x80:
+                total_sub_units = struct.unpack_from('H', self.data, cur_p)[0]
+                cur_p += 2
+            else:
+                raise TypeError('Unknown sub_units_block_type: %d' % sub_units_block_type)
+        else:
+            # no sub_units_names
+            total_sub_units = 0
+            cur_p += 4
+        # print 'total_sub_units: %d' % total_sub_units
+        sub_units_names = []
+        for i in range(total_sub_units):
+            unit_length = struct.unpack_from('B', self.data, cur_p)[0]
+            cur_p += 1
+            # 2 byte string length
+            if unit_length >= 0x80:
+                unit_length = (unit_length - 0x80) * 0x100 + struct.unpack_from('B', self.data, cur_p)[0]
+                cur_p += 1
+            sub_units_names.append(self.data[cur_p: cur_p + unit_length])
+            cur_p += unit_length
+        # print sub_units_names
+
+        # align by 0x4
+        while cur_p % 0x4 != 0: cur_p += 1
+        # print 'cur_p: %d' % cur_p
+
+        full_data = self.parse_data(cur_p, sub_units_names, out_type)
+        return full_data
 
     # return units_size, ids, cur_p
     def get_unit_sizes_and_ids(self):
@@ -548,7 +550,7 @@ class BLK:
         return key_hash
 
 
-def unpack_file(filename: os.PathLike, out_type: int):
+def unpack_file(filename: os.PathLike, out_type: int, is_sorted):
     with open(filename, 'rb') as f:
         binary_data = f.read()
 
@@ -564,7 +566,7 @@ def unpack_file(filename: os.PathLike, out_type: int):
     # TODO: fix this exception block, its ugly
     decoded_data = None
     try:
-        decoded_data = blk.unpack(out_type)
+        decoded_data = blk.unpack(out_type, is_sorted)
     except NotPackedBLKError as e:
         global blk_parser
         if not blk_parser:
@@ -587,7 +589,7 @@ def unpack_file(filename: os.PathLike, out_type: int):
             f.write(decoded_data)
 
 
-def unpack_dir(dirname: os.PathLike, out_type: int):
+def unpack_dir(dirname: os.PathLike, out_type: int, is_sorted):
     """
     Unpack all *.blk files in `dirname` with `out_type` format.
     """
@@ -597,7 +599,7 @@ def unpack_dir(dirname: os.PathLike, out_type: int):
             if os.path.isfile(subname) and os.path.splitext(subname)[1] == '.blk':
                 print(subname)
                 try:
-                    unpack_file(subname, out_type)
+                    unpack_file(subname, out_type, is_sorted)
                 except Exception as e:
                     import sys
                     from traceback import print_exc
@@ -608,7 +610,8 @@ def unpack_dir(dirname: os.PathLike, out_type: int):
 @click.argument('path', type=click.Path(exists=True))
 @click.option('--format', 'out_format', type=click.Choice(['json', 'json_min', 'strict_blk', 'json_2'],
     case_sensitive=False), default='json', show_default=True)
-def main(path: os.PathLike, out_format):
+@click.option('--sort', 'is_sorted', is_flag=True, default=False)
+def main(path: os.PathLike, out_format, is_sorted):
     """
     blk_unpack: Unpacks blk files to human readable version
 
@@ -618,6 +621,8 @@ def main(path: os.PathLike, out_format):
     json - for pretty formatted json (default);
     json_min - for minified json;
     strict_blk - for used in game blk format.
+
+    sort: sort keys in json output, should be more easy to see diff
 
     examples: `blk_unpack some.blk` will unpack to `some.blkx` using json format (default). If you want to get file to
     use it in game, use 'blk_unpack --format=strict_blk some.blk'. You can also unpack a folder with blk files:
@@ -635,9 +640,9 @@ def main(path: os.PathLike, out_format):
         out_type = BLK.output_type['json']
 
     if os.path.isfile(path):
-        unpack_file(path, out_type)
+        unpack_file(path, out_type, is_sorted)
     else:
-        unpack_dir(path, out_type)
+        unpack_dir(path, out_type, is_sorted)
 
 
 if __name__ == '__main__':
