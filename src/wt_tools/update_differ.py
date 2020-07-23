@@ -7,11 +7,11 @@ import bencodepy
 import jsondiff
 import click
 
-ignored_subfolders_list = ['compiledShaders', 'win32', 'win64', 'EasyAntiCheat', 'frameworks.zip', 'ca-bundle.crt',
+IGNORED_LIST = ['compiledShaders', 'win32', 'win64', 'EasyAntiCheat', 'frameworks.zip', 'ca-bundle.crt',
     'cef_paks.zip', 'mac.zip', 'linux64', 'mac_cef_framework.zip', 'mac_cef_bin.zip', 'mac_sign.zip']
 
 
-def parse_yup(file: os.PathLike, ignore=None):
+def parse_yup(file: os.PathLike):
     with open(file, 'rb') as f:
         data = f.read()
         
@@ -24,8 +24,6 @@ def parse_yup(file: os.PathLike, ignore=None):
         # only files, skip other things
         if b'sha1' in file.keys():
             f_path = os.path.join(*file[b'path']).decode()
-            if ignore and any([f_path.startswith(x) for x in ignore]):
-                continue
             f_sha1 = binascii.hexlify(file[b'sha1']).decode()
             f_time = str(datetime.datetime.utcfromtimestamp(file[b'mtime']))
             f_size = file[b'length']
@@ -33,13 +31,19 @@ def parse_yup(file: os.PathLike, ignore=None):
     return data1
 
 
-def make_diff(file_old: os.PathLike, file_new: os.PathLike, ignore=None):
-    data1 = parse_yup(file_old, ignore=ignore)
-    data2 = parse_yup(file_new, ignore=ignore)
+def make_diff(file_old: os.PathLike, file_new: os.PathLike, show_all: bool):
+    data1 = parse_yup(file_old)
+    data2 = parse_yup(file_new)
     
     diff = jsondiff.diff(data1, data2, syntax='symmetric')
     diff_fixed = dict()
     for filename, attributes in diff.items():
+        # skip key if not show_all and only time changed
+        if not show_all and len(attributes) == 1 and list(attributes.keys())[0] == 'time':
+            continue
+        # skip key if not show_all and filename in boring list
+        if not show_all and any([filename.startswith(x) for x in IGNORED_LIST]):
+            continue
         diff_fixed[filename] = {'old': {}, 'new': {}}
         for attribute, attr_values in attributes.items():
             diff_fixed[filename]['old'][attribute] = attr_values[0]
@@ -56,12 +60,9 @@ def main(old_file: os.PathLike, new_file: os.PathLike, show_boring):
     update_differ: diffs two *.yup files to show what's changed and output it's sha1, size, file path in json.
 
     OLD_FILE, NEW_FILE: paths to 2 yup files to diff
-    --show_boring: shows all files changed, like *.exe, hidden by default
+    --show_boring: shows all files that hidden by default: *.exe files and files with only timestamp changed
     """
-    if show_boring:
-        diff = make_diff(old_file, new_file)
-    else:
-        diff = make_diff(old_file, new_file, ignore=ignored_subfolders_list)
+    diff = make_diff(old_file, new_file, show_boring)
     print(diff)
     
 
