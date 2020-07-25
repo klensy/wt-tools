@@ -393,6 +393,13 @@ class BLK:
         """
         if self.output_type == BLK.output_type['strict_blk']:
             block.append((str_id, val_type, value))
+        elif self.output_type == BLK.output_type['json_2']:
+            # first value, no duplicates
+            if str_id not in block:
+                block[str_id] = [value]
+            # duplicate, so add to array of values
+            else:
+                block[str_id].append(value)
         elif is_not_list:
             if str_id in block:  # duplicates, create list from dict
                 block = [{c[0]: c[1]} for c in block.items()]
