@@ -38,6 +38,11 @@ def make_diff(file_old: os.PathLike, file_new: os.PathLike, show_all: bool):
     diff = jsondiff.diff(data1, data2, syntax='symmetric')
     diff_fixed = dict()
     for filename, attributes in diff.items():
+        # if we see completely new files, add it
+        if filename == jsondiff.insert:
+            for filename_interal, attr_values in attributes.items():
+                diff_fixed[filename_interal] = {'new': attr_values}
+            continue
         # skip key if not show_all and only time changed
         if not show_all and len(attributes) == 1 and list(attributes.keys())[0] == 'time':
             continue
@@ -48,7 +53,7 @@ def make_diff(file_old: os.PathLike, file_new: os.PathLike, show_all: bool):
         for attribute, attr_values in attributes.items():
             diff_fixed[filename]['old'][attribute] = attr_values[0]
             diff_fixed[filename]['new'][attribute] = attr_values[1]
-    return json.dumps(diff_fixed)
+    return json.dumps(diff_fixed, indent=2)
 
 
 @click.command()
