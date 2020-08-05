@@ -4,13 +4,13 @@ import sys
 from cx_Freeze import setup, Executable
 
 src_path = "src/wt_tools/"
-packages = []
+packages = ["multiprocessing"]
 includes = []
-excludes = ["unittest", "pydoc", "construct.examples", "bz2"]
+excludes = ["unittest", "pydoc", "construct.examples", "bz2", "lib2to3"]
 includefiles = [os.path.join(src_path, "./formats/blk.lark"), os.path.join(src_path, '../../README.md')]
 zip_include_packages = ["collections", "construct", "ctypes", "encodings", "json", "logging", "importlib", "formats",
                         "zstandard", "xml", "urllib", "distutils", "click", "pkg_resources", "colorama", "bencodepy",
-                        "jsondiff", "requests", "chardet", "idna", "urllib3", "email", "http", "certifi"]
+                        "jsondiff", "requests", "chardet", "idna", "urllib3", "email", "http", "certifi", "multiprocessing"]
 
 
 blk_unpack = Executable(
