@@ -44,6 +44,8 @@ def unpack(filename: os.PathLike, dist_dir: os.PathLike, file_list_path: Optiona
     with click.progressbar(range(parsed.body.data.data.files_count), label="Unpacking files") as bar:
         for i in bar:
             vromfs_internal_file_path = parsed.body.data.data.filename_table.filenames[i]
+            # clean leading slashes, there was a bug in 1.99.1.70 with "/version" file path
+            vromfs_internal_file_path = vromfs_internal_file_path.lstrip('/\\')
             if file_list_path:
                 if os.path.normcase(vromfs_internal_file_path) in file_list:
                     unpacked_filename = os.path.join(dist_dir, vromfs_internal_file_path)

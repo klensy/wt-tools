@@ -43,7 +43,7 @@ def main():
     total_files = struct.unpack_from('H', data, 0x8)[0]
     print("total files:", total_files)
     cur_p = file_names_block_offset
-
+    # TODO: fix path, like in vromfs_unpacker with abs path
     file_names = []
     for i in range(total_files):
         old_cur_p = cur_p

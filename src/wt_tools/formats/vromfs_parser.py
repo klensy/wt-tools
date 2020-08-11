@@ -132,12 +132,12 @@ zstd_stream = "zstd_stream" / Struct(
 
 vromfs_zstd_packed_body = Struct(
     Embedded(zstd_stream),
-    "data"/ RestreamData(this.decompressed_data, not_packed_stream),
+    "data" / RestreamData(this.decompressed_data, not_packed_stream),
 )
 
 vromfs_zlib_packed_body = Struct(
     Embedded(zlib_stream),
-    "data"/ RestreamData(this.decompressed_body, not_packed_stream),
+    "data" / RestreamData(this.decompressed_body, not_packed_stream),
 )
 
 vromfs_header = Struct(
@@ -148,7 +148,7 @@ vromfs_header = Struct(
     "vromfs_type" / vromfs_type,
     "vromfs_packed_type" / Computed(lambda ctx: "zstd_packed" if ctx.vromfs_type == "zstd_packed" else
     ("not_packed" if ctx.vromfs_type == "maybe_packed" and ctx.packed_size == 0 else
-     ("zlib_packed" if ctx.vromfs_type == "maybe_packed" and ctx.packed_size > 0 else "hoo")))
+     ("zlib_packed" if ctx.vromfs_type == "maybe_packed" and ctx.packed_size > 0 else "hoo"))),
 )
 
 vromfs_body = Struct(
@@ -169,5 +169,5 @@ vromfs_file = Struct(
         vromfs_ext_header),
     "body" / vromfs_body,
     # "tail" / Bytes(272)
-    "tail" / GreedyBytes
+    "tail" / GreedyBytes,
 )

@@ -51,7 +51,7 @@ update_checker = Executable(
 
 setup(
     name="wt_tools",
-    version="0.2.2.7-dev",
+    version="0.2.2.8-dev",
     author='klensy',
     description="War Thunder resource extraction tools",
     url="https://github.com/klensy/wt-tools",
