@@ -221,7 +221,7 @@ class BLK:
             total_sub_units = 0
             cur_p += 4
         # print 'total_sub_units: %d' % total_sub_units
-        sub_units_names = []
+        sub_units_names: List[str] = []
         for i in range(total_sub_units):
             unit_length = struct.unpack_from('B', self.data, cur_p)[0]
             cur_p += 1
@@ -270,7 +270,7 @@ class BLK:
         else:
             raise TypeError('Unknown block = {:x}'.format(header_type))
 
-    def parse_data(self, cur_p: int, sub_units_names):
+    def parse_data(self, cur_p: int, sub_units_names: List[str]):
         """
         Read main block of data and parse it.
 
@@ -288,11 +288,11 @@ class BLK:
             raise ValueError("unknown blk_version:", self.blk_version)
         return full_data
 
-    def read_first_header(self, offset: int):
+    def read_first_header(self, offset: int) -> Tuple[Tuple[int, int], bool]:
         linear_units, group_num = struct.unpack_from('HH', self.data, offset)
         return (linear_units, group_num), True
 
-    def parse_inner(self, cur_p, b_size, sub_units_names):
+    def parse_inner(self, cur_p: int, b_size: Tuple[int, int], sub_units_names: List[str]):
         # TODO: make class from it, drop ids_w_names, sub_units_names refs
         if self.output_type == BLK.output_type['strict_blk']:
             curr_block: Iterable = []
@@ -331,7 +331,7 @@ class BLK:
                 break
         return curr_block, cur_p
 
-    def parse_inner_v3(self, cur_p: int, b_size, sub_units_names):
+    def parse_inner_v3(self, cur_p: int, b_size: Tuple[int, int], sub_units_names: List[str]):
         # TODO: make class from it, drop ids_w_names, sub_units_names refs
         if self.output_type == BLK.output_type['strict_blk']:
             curr_block: Iterable = []
@@ -558,7 +558,7 @@ class BLK:
         return key_hash
 
 
-def unpack_file(filename: os.PathLike, out_type: int, is_sorted):
+def unpack_file(filename: os.PathLike, out_type: int, is_sorted: bool):
     with open(filename, 'rb') as f:
         binary_data = f.read()
 
@@ -597,7 +597,7 @@ def unpack_file(filename: os.PathLike, out_type: int, is_sorted):
             f.write(decoded_data)
 
 
-def unpack_dir(dirname: os.PathLike, out_type: int, is_sorted):
+def unpack_dir(dirname: os.PathLike, out_type: int, is_sorted: bool):
     """
     Unpack all *.blk files in `dirname` with `out_type` format.
     """
@@ -619,7 +619,7 @@ def unpack_dir(dirname: os.PathLike, out_type: int, is_sorted):
 @click.option('--format', 'out_format', type=click.Choice(['json', 'json_min', 'strict_blk', 'json_2'],
     case_sensitive=False), default='json', show_default=True)
 @click.option('--sort', 'is_sorted', is_flag=True, default=False)
-def main(path: os.PathLike, out_format, is_sorted):
+def main(path: os.PathLike, out_format, is_sorted: bool):
     """
     blk_unpack: Unpacks blk files to human readable version
 
