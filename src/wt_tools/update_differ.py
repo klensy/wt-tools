@@ -4,17 +4,17 @@ import json
 import os.path
 
 import bencodepy
-import jsondiff
 import click
+import jsondiff
 
 IGNORED_LIST = ['compiledShaders', 'win32', 'win64', 'EasyAntiCheat', 'frameworks.zip', 'ca-bundle.crt',
-    'cef_paks.zip', 'mac.zip', 'linux64', 'mac_cef_framework.zip', 'mac_cef_bin.zip', 'mac_sign.zip']
+                'cef_paks.zip', 'mac.zip', 'linux64', 'mac_cef_framework.zip', 'mac_cef_bin.zip', 'mac_sign.zip']
 
 
 def parse_yup(file: os.PathLike):
     with open(file, 'rb') as f:
         data = f.read()
-        
+
     d_data = bencodepy.decode(data)
 
     # print("version:", d_data[b'yup'][b'version'])
@@ -34,15 +34,22 @@ def parse_yup(file: os.PathLike):
 def make_diff(file_old: os.PathLike, file_new: os.PathLike, show_all: bool):
     data1 = parse_yup(file_old)
     data2 = parse_yup(file_new)
-    
+
     diff = jsondiff.diff(data1, data2, syntax='symmetric')
     diff_fixed = dict()
     for filename, attributes in diff.items():
         # if we see completely new files, add it
-        if filename == jsondiff.insert:
-            for filename_interal, attr_values in attributes.items():
-                diff_fixed[filename_interal] = {'new': attr_values}
-            continue
+        if isinstance(filename, jsondiff.Symbol):
+            if filename == jsondiff.insert:
+                for filename_interal, attr_values in attributes.items():
+                    diff_fixed[filename_interal] = {'new': attr_values}
+                continue
+            elif filename == jsondiff.delete:
+                for filename_interal, attr_values in attributes.items():
+                    diff_fixed[filename_interal] = {'remove': attr_values}
+                continue
+            else:
+                raise NotImplementedError("This jsondiff type not implemented, {}".format(filename))
         # skip key if not show_all and only time changed
         if not show_all and len(attributes) == 1 and list(attributes.keys())[0] == 'time':
             continue
@@ -69,7 +76,7 @@ def main(old_file: os.PathLike, new_file: os.PathLike, show_boring):
     """
     diff = make_diff(old_file, new_file, show_boring)
     print(diff)
-    
+
 
 if __name__ == '__main__':
     main()
