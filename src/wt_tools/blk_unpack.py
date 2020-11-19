@@ -619,7 +619,7 @@ def unpack_dir(dirname: os.PathLike, out_type: int, is_sorted: bool):
 @click.option('--format', 'out_format', type=click.Choice(['json', 'json_min', 'strict_blk', 'json_2'],
     case_sensitive=False), default='json', show_default=True)
 @click.option('--sort', 'is_sorted', is_flag=True, default=False)
-def main(path: os.PathLike, out_format, is_sorted: bool):
+def main(path: os.PathLike, out_format: str, is_sorted: bool):
     """
     blk_unpack: Unpacks blk files to human readable version
 
