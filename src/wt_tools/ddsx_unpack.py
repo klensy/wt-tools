@@ -37,12 +37,14 @@ dll_name = 'oo2core_6_win64.dll'
 dll_real_path = os.path.join(get_tool_path(), dll_name)
 oodle_dll = None
 if not os.path.exists(dll_real_path):
-    print("Can't unpack oodle compressed textures, until {} not placed to wt-tools directory".format(dll_name))
+    print(
+        "Can't unpack oodle compressed textures, until {} not placed to wt-tools directory"
+        .format(dll_name))
 else:
     oodle_dll = ctypes.cdll.LoadLibrary(dll_real_path)
 
 
-def unpack(data):
+def unpack(data: bytes):
     """
     Unpack data from ddsx and returns it. If data have wrong header, prints error
     and return None. Return unpacked dds data, ready for saving.
@@ -67,11 +69,11 @@ def unpack(data):
 
     dds_packed = compression_type.get(dds_compression_type, "")
     if dds_packed == "not_packed":
-        return dds_data.raw + data[0x20:]
+        d_data = data[0x20:]
     elif dds_packed == "lzma":
-        return dds_data.raw + pylzma.decompress(data[0x20:], maxlength=parsed_data.header.memSz)
+        d_data = pylzma.decompress(data[0x20:], maxlength=parsed_data.header.memSz)
     elif dds_packed == "zlib":
-        return dds_data.raw + zlib.decompress(data[0x20:])
+        d_data = zlib.decompress(data[0x20:])
     elif dds_packed == "oodle":
         '''
         private static extern long OodleLZ_Decompress(byte[] buffer, long bufferSize, byte[] result,
@@ -80,12 +82,14 @@ def unpack(data):
         '''
         if oodle_dll:
             decompressed_data = ctypes.create_string_buffer(parsed_data.header.memSz)
-            res = oodle_dll.OodleLZ_Decompress(data[0x20:], parsed_data.header.packedSz, decompressed_data,
-                                               parsed_data.header.memSz, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3)
+            res = oodle_dll.OodleLZ_Decompress(data[0x20:], parsed_data.header.packedSz,
+                                               decompressed_data,
+                                               parsed_data.header.memSz, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                                               3)
             if res == 0:
                 print("Error unpacking oodle compressed texture")
                 return
-            return dds_data.raw + decompressed_data.raw
+            d_data = decompressed_data.raw
         else:
             print("unsupported compression type: {}".format(dds_packed))
     elif dds_packed == "zstd":
@@ -94,10 +98,46 @@ def unpack(data):
         if d_data == 0:
             print("Error unpacking zstd compressed texture")
             return
-        return dds_data.raw + d_data
     else:
         print("Unknown compression type: {}".format(dds_compression_type))
         return
+
+    if not d_data:
+        print("unpacked data empty somehow")
+        return
+
+    if parsed_data.header.flags.FLG_REV_MIP_ORDER:
+        # Reverse MIPMAP order (from smallest -> biggest to biggest -> smallest)
+        if texture_format == b'DXT1':
+            def get_dxt1_size(t_width, t_height):
+                # Each 4x4 blocks use 8 bytes
+                # XXX We suppose width and height must be rounded up so that they are multiple of 4
+                if (t_width & 3) != 0:
+                    t_width += 4 - (t_width & 3)
+                if (t_height & 3) != 0:
+                    t_height += 4 - (t_height & 3)
+
+                blocks = (t_width * t_height) // (4 * 4)
+                return blocks * 8
+
+            pos = 0
+            images = []
+            for level in range(parsed_data.header.levels - 1, -1, -1):
+                width = parsed_data.header.w // (2 ** level)
+                height = parsed_data.header.h // (2 ** level)
+                size = get_dxt1_size(width, height)
+                images.append(d_data[pos:pos + size])
+                pos += size
+
+            d_data = bytearray()
+            for image in reversed(images):
+                d_data.extend(image)
+
+        elif parsed_data.header.levels > 1:
+            print("Dunno how to re-order mipmaps for format {}".format(texture_format))
+            return
+
+    return dds_data.raw + d_data
 
 
 def unpack_file(filename):
