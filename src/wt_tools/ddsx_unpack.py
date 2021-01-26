@@ -108,24 +108,24 @@ def unpack(data: bytes):
 
     if parsed_data.header.flags.FLG_REV_MIP_ORDER:
         # Reverse MIPMAP order (from smallest -> biggest to biggest -> smallest)
-        if texture_format == b'DXT1':
-            def get_dxt1_size(t_width, t_height):
-                # Each 4x4 blocks use 8 bytes
-                # XXX We suppose width and height must be rounded up so that they are multiple of 4
-                if (t_width & 3) != 0:
-                    t_width += 4 - (t_width & 3)
-                if (t_height & 3) != 0:
-                    t_height += 4 - (t_height & 3)
-
-                blocks = (t_width * t_height) // (4 * 4)
-                return blocks * 8
+        if texture_format in [b'DXT1', b'DXT5']:
+            # https://docs.microsoft.com/en-us/windows/win32/direct3ddds/dds-file-layout-for-textures
+            def get_dxt1_size(t_width, t_height, dxt_version):
+                dxt_size = max(1, (t_width + 3) // 4) * max(1, (t_height + 3) // 4)
+                if dxt_version == b'DXT1':
+                    return dxt_size * 8
+                elif dxt_version == b'DXT5':
+                    return dxt_size * 16
+                else:
+                    print("unknown dxt version: {}", dxt_version)
+                    return
 
             pos = 0
             images = []
             for level in range(parsed_data.header.levels - 1, -1, -1):
                 width = parsed_data.header.w // (2 ** level)
                 height = parsed_data.header.h // (2 ** level)
-                size = get_dxt1_size(width, height)
+                size = get_dxt1_size(width, height, texture_format)
                 images.append(d_data[pos:pos + size])
                 pos += size
 
@@ -134,8 +134,8 @@ def unpack(data: bytes):
                 d_data.extend(image)
 
         elif parsed_data.header.levels > 1:
+            # left unpacked data as is
             print("Dunno how to re-order mipmaps for format {}".format(texture_format))
-            return
 
     return dds_data.raw + d_data
 
