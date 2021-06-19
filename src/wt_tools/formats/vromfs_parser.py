@@ -2,7 +2,7 @@ import struct
 
 import zstandard
 from construct import Construct, Enum, Byte, this, Adapter, Struct, Seek, Int32ul, Array, CString, Tell, If, Bytes, \
-    Computed, Embedded, Switch, Int24ul, Hex, Int16ul, GreedyBytes, RestreamData
+    Computed, Embedded, Switch, Int24ul, Hex, Int16ul, GreedyBytes, RestreamData, IfThenElse
 
 from .common import zlib_stream
 
@@ -97,6 +97,12 @@ not_packed_stream = Struct(
         "data_start_offset" / Tell,
         "filename_table_offset" / Int32ul,
         "files_count" / Int32ul,
+        # for new (2.7.0.58+) encoding: minus one file with zstd dict
+        "files_count" / IfThenElse(
+            this._._._.is_new_version,
+            Computed(this.files_count - 1),
+            Computed(this.files_count)
+        ),
         Seek(8, 1),
         "filedata_table_offset" / Int32ul,
         "filename_table" / filename_table,
@@ -167,6 +173,10 @@ vromfs_file = Struct(
     "ext_header" / If(
         this.header.magic == "vrfx",
         vromfs_ext_header),
+    "is_new_version" / If(
+        this.ext_header.version >= 34013243,
+        Computed(True)
+    ),
     "body" / vromfs_body,
     # "tail" / Bytes(272)
     "tail" / GreedyBytes,
