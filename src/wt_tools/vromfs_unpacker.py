@@ -44,11 +44,16 @@ def unpack(filename: os.PathLike, dist_dir: os.PathLike, file_list_path: Optiona
 
     is_new_version = parsed.is_new_version
     is_dict_here = parsed.body.data.data.filename_table.filenames[0].filename.endswith('.dict')
-    if is_new_version and is_dict_here:
-        zstd_dict = zstandard.ZstdCompressionDict(parsed.body.data.data.file_data_table.file_data_list[0].data,
-                                                  dict_type=zstandard.DICT_TYPE_AUTO)
-        # print("dict_id", zstd_dict.dict_id())
-        dctx = zstandard.ZstdDecompressor(dict_data=zstd_dict, format=zstandard.FORMAT_ZSTD1)
+    is_namemap_here = parsed.body.data.data.filename_table.filenames[parsed.body.data.data.files_count-1]\
+        .filename == 'nm'
+    if is_new_version:
+        if is_dict_here:
+            zstd_dict = zstandard.ZstdCompressionDict(parsed.body.data.data.file_data_table.file_data_list[0].data,
+                                                      dict_type=zstandard.DICT_TYPE_AUTO)
+            # print("dict_id", zstd_dict.dict_id())
+            dctx = zstandard.ZstdDecompressor(dict_data=zstd_dict, format=zstandard.FORMAT_ZSTD1)
+        else:
+            dctx = zstandard.ZstdDecompressor(format=zstandard.FORMAT_ZSTD1)
 
     with click.progressbar(range(parsed.body.data.data.files_count), label="Unpacking files") as bar:
         for i in bar:
@@ -70,27 +75,49 @@ def unpack(filename: os.PathLike, dist_dir: os.PathLike, file_list_path: Optiona
                 unpacked_filename = os.path.join(dist_dir, vromfs_internal_file_path)
                 mkdir_p(unpacked_filename)
                 with open(unpacked_filename, 'wb') as f:
-                    if is_new_version and is_dict_here and i != 0 and unpacked_filename.endswith('.blk'):
-                        packed_type = parsed.body.data.data.file_data_table.file_data_list[i].data[0]
-                        # not zstd packed, small blk file?
-                        if packed_type == 3:
-                            f.write(parsed.body.data.data.file_data_table.file_data_list[i].data[1:])
-                        # zstd packed blk file
-                        elif packed_type == 5:
-                            dict_decoded_data = dctx.decompress(
-                                parsed.body.data.data.file_data_table.file_data_list[i].data[1:])
-                            f.write(dict_decoded_data)
-                        # not zstd packed, raw text blk file?
-                        else:
-                            # print("unknown packed_type:{}, file:{}".format(packed_type,unpacked_filename))
+                    if is_new_version:
+                        if is_dict_here and i == 0:
                             f.write(parsed.body.data.data.file_data_table.file_data_list[i].data)
-                    # last file `?nm` - name map
-                    # skip first 40 bytes, unpack, and few start bytes in unpacked namemap is unknown
-                    elif is_new_version and is_dict_here and i == parsed.body.data.data.files_count - 1:
-                        name_map_decompressed = dctx.decompress(
-                            parsed.body.data.data.file_data_table.file_data_list[i].data[40:],
-                            max_output_size=parsed.body.data.data.file_data_table.file_data_list[i].file_data_size)
-                        f.write(name_map_decompressed)
+                        # last file `?nm` - name map
+                        # skip first 40 bytes, unpack, and few start bytes in unpacked namemap is unknown
+                        elif is_namemap_here and i == parsed.body.data.data.files_count - 1:
+                            name_map_decompressed = dctx.decompress(
+                                parsed.body.data.data.file_data_table.file_data_list[i].data[40:],
+                                max_output_size=parsed.body.data.data.file_data_table.file_data_list[i].file_data_size)
+                            f.write(name_map_decompressed)
+                        elif unpacked_filename.endswith('.blk'):
+                            # print(unpacked_filename)
+                            # skip empty file
+                            if parsed.body.data.data.file_data_table.file_data_list[i].file_data_size == 0:
+                                continue
+                            packed_type = parsed.body.data.data.file_data_table.file_data_list[i].data[0]
+                            # not zstd packed, small blk file, with inner dict?
+                            if packed_type == 1:
+                                f.write(parsed.body.data.data.file_data_table.file_data_list[i].data[1:])
+                            # where that file can be found?
+                            elif packed_type == 2:
+                                print("packed_type:{}, file:{}".format(packed_type, unpacked_filename))
+                            # not zstd packed, small blk file?
+                            elif packed_type == 3:
+                                f.write(parsed.body.data.data.file_data_table.file_data_list[i].data[1:])
+                            # zstd packed without dict with namemap
+                            elif packed_type == 4:
+                                decoded_data = dctx.decompress(
+                                    parsed.body.data.data.file_data_table.file_data_list[i].data[1:],
+                                    # 200_000 is some working value
+                                    max_output_size=200_000)
+                                f.write(decoded_data)
+                            # zstd packed blk file with dict
+                            elif packed_type == 5:
+                                dict_decoded_data = dctx.decompress(
+                                    parsed.body.data.data.file_data_table.file_data_list[i].data[1:])
+                                f.write(dict_decoded_data)
+                            # not zstd packed, raw text blk file?
+                            else:
+                                # print("unknown packed_type:{}, file:{}".format(packed_type,unpacked_filename))
+                                f.write(parsed.body.data.data.file_data_table.file_data_list[i].data)
+                        else:
+                            f.write(parsed.body.data.data.file_data_table.file_data_list[i].data)
                     # older blk versions
                     else:
                         f.write(parsed.body.data.data.file_data_table.file_data_list[i].data)
