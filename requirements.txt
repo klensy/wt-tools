@@ -1,5 +1,5 @@
 # for parsing
-construct==2.9.38
+construct==2.9.40
 
 # for unpacking
 zstandard==0.15.1 --install-option="--legacy"

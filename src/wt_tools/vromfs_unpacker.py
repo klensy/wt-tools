@@ -5,6 +5,7 @@ from hashlib import md5
 from typing import Optional
 
 import click
+import zstandard
 
 from formats.vromfs_parser import vromfs_file
 
@@ -41,22 +42,58 @@ def unpack(filename: os.PathLike, dist_dir: os.PathLike, file_list_path: Optiona
         # normalise paths in inputted list
         file_list = [os.path.normcase(p) for p in file_list]
 
+    is_new_version = parsed.is_new_version
+    is_dict_here = parsed.body.data.data.filename_table.filenames[0].filename.endswith('.dict')
+    if is_new_version and is_dict_here:
+        zstd_dict = zstandard.ZstdCompressionDict(parsed.body.data.data.file_data_table.file_data_list[0].data,
+                                                  dict_type=zstandard.DICT_TYPE_AUTO)
+        # print("dict_id", zstd_dict.dict_id())
+        dctx = zstandard.ZstdDecompressor(dict_data=zstd_dict, format=zstandard.FORMAT_ZSTD1)
+
     with click.progressbar(range(parsed.body.data.data.files_count), label="Unpacking files") as bar:
         for i in bar:
-            vromfs_internal_file_path = parsed.body.data.data.filename_table.filenames[i]
+            vromfs_internal_file_path = parsed.body.data.data.filename_table.filenames[i].filename
             # clean leading slashes, there was a bug in 1.99.1.70 with "/version" file path
             vromfs_internal_file_path = vromfs_internal_file_path.lstrip('/\\')
             if file_list_path:
+                # TODO should be mostly the same as normal path, dedup
+                # FIXME this branch may be broken now
                 if os.path.normcase(vromfs_internal_file_path) in file_list:
                     unpacked_filename = os.path.join(dist_dir, vromfs_internal_file_path)
                     mkdir_p(unpacked_filename)
                     with open(unpacked_filename, 'wb') as f:
-                        f.write(parsed.body.data.data.file_data_table.file_data_list[i].data)
+                        if is_new_version and is_dict_here and i != 0 and unpacked_filename.endswith('.blk'):
+                            f.write(dctx.decompress(parsed.body.data.data.file_data_table.file_data_list[i].data))
+                        else:
+                            f.write(parsed.body.data.data.file_data_table.file_data_list[i].data)
             else:
                 unpacked_filename = os.path.join(dist_dir, vromfs_internal_file_path)
                 mkdir_p(unpacked_filename)
                 with open(unpacked_filename, 'wb') as f:
-                    f.write(parsed.body.data.data.file_data_table.file_data_list[i].data)
+                    if is_new_version and is_dict_here and i != 0 and unpacked_filename.endswith('.blk'):
+                        packed_type = parsed.body.data.data.file_data_table.file_data_list[i].data[0]
+                        # not zstd packed, small blk file?
+                        if packed_type == 3:
+                            f.write(parsed.body.data.data.file_data_table.file_data_list[i].data[1:])
+                        # zstd packed blk file
+                        elif packed_type == 5:
+                            dict_decoded_data = dctx.decompress(
+                                parsed.body.data.data.file_data_table.file_data_list[i].data[1:])
+                            f.write(dict_decoded_data)
+                        # not zstd packed, raw text blk file?
+                        else:
+                            # print("unknown packed_type:{}, file:{}".format(packed_type,unpacked_filename))
+                            f.write(parsed.body.data.data.file_data_table.file_data_list[i].data)
+                    # last file `?nm` - name map
+                    # skip first 40 bytes, unpack, and few start bytes in unpacked namemap is unknown
+                    elif is_new_version and is_dict_here and i == parsed.body.data.data.files_count - 1:
+                        name_map_decompressed = dctx.decompress(
+                            parsed.body.data.data.file_data_table.file_data_list[i].data[40:],
+                            max_output_size=parsed.body.data.data.file_data_table.file_data_list[i].file_data_size)
+                        f.write(name_map_decompressed)
+                    # older blk versions
+                    else:
+                        f.write(parsed.body.data.data.file_data_table.file_data_list[i].data)
 
 
 def files_list_info(filename: os.PathLike, dist_file: Optional[os.PathLike]) -> Optional[str]:

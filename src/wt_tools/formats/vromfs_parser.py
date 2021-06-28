@@ -2,7 +2,7 @@ import struct
 
 import zstandard
 from construct import Construct, Enum, Byte, this, Adapter, Struct, Seek, Int32ul, Array, CString, Tell, If, Bytes, \
-    Computed, Embedded, Switch, Int24ul, Hex, Int16ul, GreedyBytes, RestreamData, IfThenElse
+    Computed, Embedded, Switch, Int24ul, Hex, Int16ul, GreedyBytes, RestreamData, IfThenElse, NullTerminated
 
 from .common import zlib_stream
 
@@ -59,7 +59,17 @@ struct VirtualRomFsExtHdr {
 vromfs_ext_header = Struct(
     "size" / Int16ul,
     "flags" / Int16ul,
+    # parsed as 34013242 -> 0207003A -> 2.7.0.58
     "version" / Int32ul
+)
+
+filename = Struct(
+    "filename" / NullTerminated(GreedyBytes, include=True),
+    "filename" / IfThenElse(
+        this.filename == b'\xff?nm\x00',
+        RestreamData(b'nm\x00', CString(encoding="utf8")),
+        RestreamData(this.filename, CString(encoding="utf8")),
+    ),
 )
 
 filename_table = Struct(
@@ -69,7 +79,7 @@ filename_table = Struct(
     # but we cheat, just read total_files * cstrings
     "first_filename_offset" / Int32ul,
     Seek(this._.data_start_offset + this.first_filename_offset),
-    "filenames" / Array(this._.files_count, CString(encoding="utf8")),
+    "filenames" / Array(this._.files_count, filename),
 )
 
 file_data_record = Struct(
@@ -97,12 +107,6 @@ not_packed_stream = Struct(
         "data_start_offset" / Tell,
         "filename_table_offset" / Int32ul,
         "files_count" / Int32ul,
-        # for new (2.7.0.58+) encoding: minus one file with zstd dict
-        "files_count" / IfThenElse(
-            this._._._.is_new_version,
-            Computed(this.files_count - 1),
-            Computed(this.files_count)
-        ),
         Seek(8, 1),
         "filedata_table_offset" / Int32ul,
         "filename_table" / filename_table,
@@ -172,10 +176,17 @@ vromfs_file = Struct(
     "header" / vromfs_header,
     "ext_header" / If(
         this.header.magic == "vrfx",
-        vromfs_ext_header),
-    "is_new_version" / If(
-        this.ext_header.version >= 34013243,
-        Computed(True)
+        vromfs_ext_header,
+    ),
+    "is_new_version" / IfThenElse(
+        # FIXME in one line
+        this.ext_header,
+        If(
+            # version 2.7.0.58+
+            this.ext_header.version >= 34013242,
+            Computed(True)
+        ),
+        Computed(False),
     ),
     "body" / vromfs_body,
     # "tail" / Bytes(272)
