@@ -22,4 +22,4 @@ bencode.py==4.0.0
 jsondiff==1.2.0
 
 # for http requests
-requests==2.25.1
+requests==2.31.0
