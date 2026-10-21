@@ -14,7 +14,8 @@ vromfs_type = Enum(
     Byte,
     unknown_type=0x40,
     maybe_packed=0x80,
-    zstd_packed=0xc0
+    zstd_packed=0xc0,
+    zstd_packed_c1=0xc1
 )
 
 
@@ -31,7 +32,10 @@ class ZstdContext(Construct):
                                  (ctx.second_part.data if ctx.second_part.data else b'') + \
                                  (ctx.align_tail if ctx.align_tail else b'')
         dctx = zstandard.ZstdDecompressor()
-        ctx.decompressed_data = dctx.decompress(deobfs_compressed_data, max_output_size=ctx._._.header.original_size)
+        # new wt versions declare a content size in the frame header that can exceed
+        # the real single-frame output; decompress() enforces it, streaming does not
+        dobj = dctx.decompressobj()
+        ctx.decompressed_data = dobj.decompress(deobfs_compressed_data)
 
 
 class ZlibAdapter(Adapter):
@@ -150,15 +154,18 @@ vromfs_zlib_packed_body = Struct(
     "data" / RestreamData(this.decompressed_body, not_packed_stream),
 )
 
+# 4th header word is a bitfield (see DagorEngine prog/dagorInclude/osApiWrappers/dag_vromfs.h):
+# packedSz = hw32 & 0x3FFFFFFF, bit30 = zstd packed, bit31 = signed contents
 vromfs_header = Struct(
     "magic" / Enum(Bytes(4), vrfs=b"VRFs", vrfx=b"VRFx"),
     "platform" / Enum(Bytes(4), pc=b"\x00\x00PC", ios=b"\x00iOS", andr=b"\x00and"),
     "original_size" / Int32ul,
-    "packed_size" / Int24ul,
-    "vromfs_type" / vromfs_type,
-    "vromfs_packed_type" / Computed(lambda ctx: "zstd_packed" if ctx.vromfs_type == "zstd_packed" else
-    ("not_packed" if ctx.vromfs_type == "maybe_packed" and ctx.packed_size == 0 else
-     ("zlib_packed" if ctx.vromfs_type == "maybe_packed" and ctx.packed_size > 0 else "hoo"))),
+    "hw32" / Hex(Int32ul),
+    "packed_size" / Computed(this.hw32 & 0x3FFFFFFF),
+    "vromfs_type" / Computed("zstd_packed"),
+    "vromfs_packed_type" / Computed(lambda ctx: "zstd_packed" if ctx.hw32 & 0x40000000 else
+    ("not_packed" if (ctx.hw32 & 0x3FFFFFFF) == 0 else
+     "zlib_packed")),
 )
 
 vromfs_body = Struct(
